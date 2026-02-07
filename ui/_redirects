@@ -1,0 +1,5 @@
+# Cloudflare Pages redirects
+# Serve demo.html as the index page
+
+/   /demo.html   200
+/*  /demo.html   200

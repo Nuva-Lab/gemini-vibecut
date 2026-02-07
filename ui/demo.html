@@ -1,0 +1,4054 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creative Universe — Gemini 3 Demo</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <span class="material-icons-outlined">auto_awesome</span>
+                Creative Universe
+            </div>
+            <span class="badge">Gemini 3 Hackathon</span>
+        </div>
+        <div class="header-right">
+            <span class="model-badge">
+                <span class="material-icons-outlined" style="font-size: 14px;">psychology</span>
+                Powered by Gemini 3
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Phone Panel -->
+        <aside class="phone-panel">
+            <!-- Android Phone Frame -->
+            <div id="android-device" class="android-frame" style="display: block;">
+                <div class="android-screen">
+                    <div id="android-photos" class="photos-app android">
+                        <!-- App Content - swappable views -->
+                        <div class="app-content">
+                            <!-- Photos View -->
+                            <div id="android-photos-view" class="app-view active">
+                                <div class="photos-view-header">
+                                    <div class="photos-logo">
+                                        <img src="/assets/demo_photos/google_photos_icon.webp" alt="Photos">
+                                    </div>
+                                    <span class="photos-title">Photos</span>
+                                </div>
+                                <div id="android-grid" class="photos-grid"></div>
+                            </div>
+                            <!-- Create View -->
+                            <div id="android-create-view" class="app-view">
+                                <div class="create-view-header">
+                                    <span class="material-icons-outlined"
+                                        style="font-size: 20px; background: linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">auto_awesome</span>
+                                    <span class="photos-title">Create</span>
+                                </div>
+                                <div id="android-chat-messages" class="chat-messages"></div>
+                                <div class="chat-input-area">
+                                    <div id="android-selected-chars" class="chat-selected-chars"></div>
+                                    <div class="chat-input-row">
+                                        <input type="text" class="chat-input" placeholder="Ask me anything..."
+                                            id="android-chat-input" onkeypress="handleChatKeypress(event, 'android')">
+                                        <button class="chat-send-btn" onclick="handleChatSend('android')">
+                                            <span class="material-icons-outlined" style="font-size: 16px;">send</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Assets View (internally: workspace) -->
+                            <div id="android-workspace-view" class="app-view">
+                                <div class="workspace-view-header">
+                                    <div class="header-left">
+                                        <span class="material-icons-outlined"
+                                            style="font-size: 18px; color: #1a73e8;">folder_special</span>
+                                        <span class="photos-title">Assets</span>
+                                    </div>
+                                    <button class="clear-btn" onclick="clearAllAssets()">Clear All</button>
+                                </div>
+                                <!-- Asset subtabs -->
+                                <div class="asset-tabs">
+                                    <button class="asset-tab-btn active" data-tab="characters" onclick="switchAssetTab('characters')">
+                                        <span class="material-icons-outlined" style="font-size: 16px;">person</span>
+                                        Characters
+                                    </button>
+                                    <button class="asset-tab-btn" data-tab="videos" onclick="switchAssetTab('videos')">
+                                        <span class="material-icons-outlined" style="font-size: 16px;">movie</span>
+                                        Videos
+                                    </button>
+                                </div>
+                                <div id="android-workspace-content" class="workspace-content">
+                                    <div class="workspace-empty">
+                                        <span class="material-icons-outlined"
+                                            style="font-size: 40px; color: #dadce0;">folder_special</span>
+                                        <p>No assets yet</p>
+                                        <p style="font-size: 11px; color: #5f6368;">Characters you create will appear
+                                            here</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- App Nav - always visible -->
+                        <div class="photos-nav">
+                            <button class="nav-item active" onclick="switchView('android', 'photos')">
+                                <span class="material-icons-outlined">photo</span>
+                                Photos
+                            </button>
+                            <button class="nav-item create-btn" onclick="switchView('android', 'create')">
+                                <span class="material-icons-outlined">auto_awesome</span>
+                                Create
+                            </button>
+                            <button id="android-workspace-nav" class="nav-item"
+                                onclick="switchView('android', 'workspace')">
+                                <span class="material-icons-outlined">folder_special</span>
+                                <span class="workspace-nav-label">Assets</span>
+                                <span id="android-workspace-badge" class="workspace-badge"
+                                    style="display: none;">0</span>
+                            </button>
+                        </div>
+                        <!-- Photo Viewer -->
+                        <div id="android-viewer" class="photo-viewer">
+                            <div class="photo-viewer-header">
+                                <button class="photo-viewer-close" onclick="closeViewer('android')">×</button>
+                                <span style="color: white; font-size: 14px;">Selected</span>
+                            </div>
+                            <div class="photo-viewer-image">
+                                <img id="android-viewer-img" src="" alt="Selected photo">
+                            </div>
+                            <div class="photo-viewer-actions">
+                                <button class="photo-viewer-btn" onclick="usePhoto('android')">✨ Transform</button>
+                            </div>
+                        </div>
+                        <!-- Bottom Sheet for Character Creation (2-step flow) -->
+                        <div id="android-bottom-sheet" class="bottom-sheet-backdrop"
+                            onclick="if(event.target === this) closeBottomSheet('android')">
+                            <div class="bottom-sheet">
+                                <div class="bottom-sheet-handle"></div>
+                                <!-- Step 1: Name + Persona -->
+                                <div id="android-step-1" class="bottom-sheet-step">
+                                    <div class="bottom-sheet-header">
+                                        <h3>✨ Create Character</h3>
+                                        <p>Give your character a name and personality</p>
+                                    </div>
+                                    <div class="character-input-form">
+                                        <div class="input-group">
+                                            <label for="android-char-name">Name</label>
+                                            <input type="text" id="android-char-name"
+                                                placeholder="e.g., Mochi, Luna, Captain Whiskers..." maxlength="30">
+                                        </div>
+                                        <div class="input-group">
+                                            <label>Pronouns</label>
+                                            <div class="pronoun-selector" id="android-pronouns">
+                                                <button type="button" class="pronoun-btn" data-value="he">He/Him</button>
+                                                <button type="button" class="pronoun-btn" data-value="she">She/Her</button>
+                                                <button type="button" class="pronoun-btn selected" data-value="they">They/Them</button>
+                                            </div>
+                                        </div>
+                                        <div class="input-group">
+                                            <label for="android-char-persona">Persona <span class="optional">(one
+                                                    line)</span></label>
+                                            <input type="text" id="android-char-persona"
+                                                placeholder="e.g., A curious adventurer who loves sunny spots..."
+                                                maxlength="100">
+                                        </div>
+                                    </div>
+                                    <div class="bottom-sheet-footer">
+                                        <button class="cancel-btn" onclick="closeBottomSheet('android')">Cancel</button>
+                                        <button class="generate-btn" id="android-next-btn"
+                                            onclick="goToStep2('android')" disabled>
+                                            Next →
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Step 2: Photo Selection -->
+                                <div id="android-step-2" class="bottom-sheet-step" style="display: none;">
+                                    <div class="bottom-sheet-header">
+                                        <h3 id="android-step2-title">Select References</h3>
+                                        <p>Pick 1-3 photos of <span id="android-char-name-display">your character</span>
+                                        </p>
+                                    </div>
+                                    <div id="android-ref-grid" class="ref-photos-grid"></div>
+                                    <div class="bottom-sheet-footer">
+                                        <button class="back-btn" onclick="goToStep1('android')">← Back</button>
+                                        <span class="count"><span id="android-count">0</span>/3 selected</span>
+                                        <button class="generate-btn" id="android-gen-btn"
+                                            onclick="generateCharacter('android')" disabled>
+                                            Generate ✨
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <iframe id="android-iframe" class="hidden"></iframe>
+                </div>
+            </div>
+
+            <!-- URL Bar -->
+            <div class="url-bar">
+                <div class="url-input-group">
+                    <input type="text" id="embed-url" placeholder="Enter Gradio URL...">
+                    <button onclick="embedUrl()">Connect</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Activity Panel - Behind the Scene Insights -->
+        <section class="activity-panel">
+            <div class="activity-header">
+                <h2>Behind the Scene</h2>
+            </div>
+            <div id="message-log" class="message-log">
+                <div class="message-placeholder">
+                    Tap <strong>Create</strong> to see AI magic unfold ✨
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Permission Dialog Overlay (A2UI Widget) -->
+    <div id="permission-overlay" class="permission-overlay">
+        <div class="permission-dialog">
+            <!-- Permission Request State -->
+            <div id="permission-request" class="permission-content">
+                <div class="permission-icon">
+                    <span class="material-icons-outlined">photo_library</span>
+                </div>
+                <h2 class="permission-title">Allow access to your photos?</h2>
+                <div class="photo-count-badge">
+                    <span class="material-icons-outlined">collections</span>
+                    <span id="photo-count-text">30 photos in gallery</span>
+                </div>
+                <p class="permission-description">
+                    Creative Universe will use Gemini 3 to understand your photos and discover characters, people, and
+                    worlds you can bring to life.
+                </p>
+                <div class="permission-actions">
+                    <button class="permission-btn primary" onclick="handlePermissionAllow()">
+                        Allow
+                    </button>
+                    <button class="permission-btn secondary" onclick="hidePermissionDialog()">
+                        Don't allow
+                    </button>
+                </div>
+            </div>
+
+            <!-- Analyzing State -->
+            <div id="permission-analyzing" class="permission-content hidden">
+                <div class="analyzing-content">
+                    <div class="analyzing-spinner"></div>
+                    <div class="analyzing-text">Analyzing your gallery...</div>
+                    <div class="analyzing-subtext" id="analyzing-progress">Sending to Gemini 3 Flash</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =============================================================
+        // Core UI Script - Essential functionality that must work
+        // =============================================================
+
+        // Agent modules (loaded dynamically to avoid blocking on import errors)
+        let AgentBrain = null;
+        let AgentContext = null;
+        let brain = null;
+        let agentContext = null;
+
+        // Workspace module for persistent asset storage
+        let Workspace = null;
+        let workspace = null;
+
+        // Load agent modules asynchronously
+        (async function loadAgentModules() {
+            try {
+                const brainModule = await import('/agent/brain.js');
+                const contextModule = await import('/agent/context.js');
+                const workspaceModule = await import('/agent/workspace.js');
+                AgentBrain = brainModule.AgentBrain;
+                AgentContext = contextModule.AgentContext;
+                agentContext = new AgentContext();
+
+                // Initialize workspace for persistent storage
+                Workspace = workspaceModule.Workspace;
+                workspace = workspaceModule.getWorkspace(SESSION_ID);
+                await workspace.init();
+
+                // Update workspace indicator if there's existing content
+                if (workspaceModule.hasWorkspaceContent(SESSION_ID)) {
+                    updateWorkspaceIndicator();
+                    // CRITICAL: Sync saved characters to agent context on init
+                    await syncWorkspaceToContext();
+                }
+
+                console.log('[Agent] Modules loaded successfully');
+            } catch (e) {
+                console.warn('[Agent] Module loading failed, using fallback:', e.message);
+                // Create stub agentContext for code that references it
+                agentContext = {
+                    shown: new Set(),
+                    loved: new Set(),
+                    skipped: new Set(),
+                    pendingSkill: null,
+                    generatedCharacters: [],
+                    savedCharacters: [],
+                    pendingStory: null,
+                    reset() {
+                        this.shown.clear();
+                        this.loved.clear();
+                        this.skipped.clear();
+                        this.generatedCharacters = [];
+                        this.pendingStory = null;
+                    },
+                    recordGeneration(subjectId, name) {
+                        this.generatedCharacters.push({ subjectId, name, generatedAt: new Date().toISOString() });
+                    },
+                    updateSavedCharacters(characters) {
+                        this.savedCharacters = characters || [];
+                    },
+                    findSavedCharacter(query) {
+                        if (!query || !this.savedCharacters.length) return null;
+                        const lowerQuery = query.toLowerCase();
+                        return this.savedCharacters.find(c => c.name?.toLowerCase().includes(lowerQuery)) || this.savedCharacters[0];
+                    },
+                    setPendingStory(story) {
+                        this.pendingStory = story;
+                    },
+                    hasUnshownSubjects() { return false; },
+                    getNextUnshownSubject() { return null; },
+                    getAllSubjectIds() { return []; }
+                };
+                // Create stub workspace
+                workspace = {
+                    async saveCharacter() { console.warn('[Workspace] Not available'); return null; },
+                    async getCharacters() { return []; },
+                    async getStats() { return { characterCount: 0 }; }
+                };
+            }
+        })();
+
+        // Photo data - organized in small sequences like a real gallery
+        const photoSequences = [
+            // Cat sequence 1
+            { name: 'cat_01', src: '/assets/demo_photos/pets/cat_01.webp' },
+            { name: 'cat_02', src: '/assets/demo_photos/pets/cat_02.webp' },
+            { name: 'cat_03', src: '/assets/demo_photos/pets/cat_03.webp' },
+            // Family at beach
+            { name: 'family_01', src: '/assets/demo_photos/people/family_01.webp' },
+            { name: 'family_02', src: '/assets/demo_photos/people/family_02.webp' },
+            // Tokyo night 1
+            { name: 'tokyo_01', src: '/assets/demo_photos/worlds/tokyo_01.webp' },
+            { name: 'tokyo_02', src: '/assets/demo_photos/worlds/tokyo_02.webp' },
+            { name: 'tokyo_03', src: '/assets/demo_photos/worlds/tokyo_03.webp' },
+            // Dog sequence
+            { name: 'dog_01', src: '/assets/demo_photos/pets/dog_01.webp' },
+            { name: 'dog_02', src: '/assets/demo_photos/pets/dog_02.webp' },
+            { name: 'dog_03', src: '/assets/demo_photos/pets/dog_03.webp' },
+            // More family
+            { name: 'family_03', src: '/assets/demo_photos/people/family_03.webp' },
+            { name: 'family_04', src: '/assets/demo_photos/people/family_04.webp' },
+            { name: 'family_05', src: '/assets/demo_photos/people/family_05.webp' },
+            // Cat sequence 2
+            { name: 'cat_04', src: '/assets/demo_photos/pets/cat_04.webp' },
+            { name: 'cat_05', src: '/assets/demo_photos/pets/cat_05.webp' },
+            // Tokyo night 2
+            { name: 'tokyo_04', src: '/assets/demo_photos/worlds/tokyo_04.webp' },
+            { name: 'tokyo_05', src: '/assets/demo_photos/worlds/tokyo_05.webp' },
+            { name: 'tokyo_06', src: '/assets/demo_photos/worlds/tokyo_06.webp' },
+            // More dogs
+            { name: 'dog_04', src: '/assets/demo_photos/pets/dog_04.webp' },
+            { name: 'dog_05', src: '/assets/demo_photos/pets/dog_05.webp' },
+            // Family moments
+            { name: 'family_06', src: '/assets/demo_photos/people/family_06.webp' },
+            { name: 'family_07', src: '/assets/demo_photos/people/family_07.webp' },
+            // Tokyo night 3
+            { name: 'tokyo_07', src: '/assets/demo_photos/worlds/tokyo_07.webp' },
+            { name: 'tokyo_08', src: '/assets/demo_photos/worlds/tokyo_08.webp' },
+            // Last family shots
+            { name: 'family_08', src: '/assets/demo_photos/people/family_08.webp' },
+            { name: 'family_09', src: '/assets/demo_photos/people/family_09.webp' },
+            { name: 'family_10', src: '/assets/demo_photos/people/family_10.webp' },
+            // Final Tokyo
+            { name: 'tokyo_09', src: '/assets/demo_photos/worlds/tokyo_09.webp' },
+            { name: 'tokyo_10', src: '/assets/demo_photos/worlds/tokyo_10.webp' },
+        ];
+
+        // Render mixed feed to grid
+        function renderMixedFeed(device) {
+            const grid = document.getElementById(`${device}-grid`);
+
+            grid.innerHTML = photoSequences.map((photo) => `
+                <div class="photo-item" onclick="openViewer('${device}', '${photo.src}')">
+                    <img src="${photo.src}" alt="${photo.name}" loading="lazy">
+                </div>
+            `).join('');
+        }
+
+        // Open photo viewer
+        function openViewer(device, src) {
+            const viewer = document.getElementById(`${device}-viewer`);
+            const img = document.getElementById(`${device}-viewer-img`);
+            img.src = src;
+            viewer.classList.add('visible');
+        }
+
+        // Close photo viewer
+        function closeViewer(device) {
+            const viewer = document.getElementById(`${device}-viewer`);
+            viewer.classList.remove('visible');
+        }
+
+        // Add message to log
+        function addMessage(text, isSystem = false) {
+            const log = document.getElementById('message-log');
+
+            // Remove placeholder if exists
+            const placeholder = log.querySelector('.message-placeholder');
+            if (placeholder) placeholder.remove();
+
+            // Create message element
+            const msg = document.createElement('div');
+            msg.className = `message-item${isSystem ? ' system' : ''}`;
+
+            const time = new Date().toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            msg.innerHTML = `${text}<div class="timestamp">${time}</div>`;
+            log.appendChild(msg);
+
+            // Auto-scroll to bottom
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Use photo (trigger transform action)
+        function usePhoto(device) {
+            const img = document.getElementById(`${device}-viewer-img`);
+            const photoName = img.src.split('/').pop().replace('.webp', '');
+            console.log('Transform photo:', img.src);
+            closeViewer(device);
+
+            // Add messages to log
+            addMessage(`📷 Selected: <strong>${photoName}</strong>`, true);
+
+            // Simulate pipeline messages
+            setTimeout(() => addMessage('🔍 Analyzing image with Gemini 3...'), 500);
+            setTimeout(() => addMessage('✨ Detected: Orange tabby cat, relaxed pose, warm lighting'), 1500);
+            setTimeout(() => addMessage('🎨 Generating character with Nano Banana Pro...'), 2500);
+        }
+
+        // Device is always Android (simplified for demo)
+        const DEVICE = 'android';
+
+        // Embed URL (for Gradio demo)
+        function embedUrl() {
+            const url = document.getElementById('embed-url').value;
+            if (!url) return;
+
+            // Hide photos app
+            document.getElementById('android-photos').classList.add('hidden');
+
+            // Show and set iframe
+            const androidIframe = document.getElementById('android-iframe');
+            androidIframe.classList.remove('hidden');
+            androidIframe.src = url;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Render mixed photo feed (Android only)
+            renderMixedFeed('android');
+
+            // Update photo count in permission dialog
+            document.getElementById('photo-count-text').textContent =
+                `${photoSequences.length} photos in gallery`;
+
+            // URL parameter support
+            const urlParams = new URLSearchParams(window.location.search);
+            const embedParam = urlParams.get('embed');
+            if (embedParam) {
+                document.getElementById('embed-url').value = embedParam;
+                embedUrl();
+            }
+
+            // Reset capability panel to show placeholder (ensure clean slate)
+            const messageLog = document.getElementById('message-log');
+            messageLog.innerHTML = `<div class="message-placeholder">Tap <strong>Create</strong> to see Gemini 3 in action</div>`;
+
+            // Clean up any old localStorage entries from previous sessions
+            // (We no longer persist session state, but clear any stale data)
+            try {
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith('creative_universe_') && key.includes('_state')) {
+                        localStorage.removeItem(key);
+                    }
+                });
+            } catch (e) { /* ignore */ }
+
+            // Load persisted character selections
+            loadSelectedCharacters();
+
+            // Auto-scroll chat container when new content is added (like Gemini mobile)
+            setupChatAutoScroll('android-chat-messages');
+
+            // Log deployment mode and session info for debugging
+            console.log(`Creative Universe - Mode: ${DEPLOYMENT_MODE}`);
+            console.log(`Session ID: ${SESSION_ID.slice(0, 8)}... (fresh session)`);
+        });
+
+        // =============================================================
+        // Session Management - In-Memory Only (Fresh on Refresh)
+        // =============================================================
+
+        // Session ID via sessionStorage: survives refresh, isolated per tab, gone on close
+        const SESSION_ID = sessionStorage.getItem('vibecut_session_id') || (() => {
+            const id = crypto.randomUUID ? crypto.randomUUID() :
+                'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                    const r = Math.random() * 16 | 0;
+                    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+                });
+            sessionStorage.setItem('vibecut_session_id', id);
+            return id;
+        })();
+        console.log('[Session] ID:', SESSION_ID);
+
+        // Session state object - in-memory only, resets on page refresh
+        const sessionState = {
+            initialized: false,
+            permissionGranted: false,
+            analysisResult: null,
+            photoUrls: [],          // Photo URLs for thumbnail lookup
+            chatHistory: [],        // Array of {role, content, type} objects
+            techFlowHistory: [],    // Array of {type, label, text} objects
+            revealStage: 0,         // Progressive disclosure stage
+            itemIndex: { characters: 0, places: 0, ideas: 0 },
+            reactions: {},          // User reactions for personalization
+            canvas: { characters: [], places: [], ideas: [] },
+            tonePreferences: [],
+            skipped: [],
+        };
+
+        // No-op functions - kept for compatibility but don't persist
+        function loadSession() {
+            // In-memory only - nothing to load
+            return false;
+        }
+
+        function saveSession() {
+            // In-memory only - state is already in sessionState object
+            // This function is called throughout the code but does nothing
+        }
+
+        function clearSession() {
+            // Reset to initial state
+            sessionState.initialized = false;
+            sessionState.permissionGranted = false;
+            sessionState.analysisResult = null;
+            sessionState.photoUrls = [];
+            sessionState.chatHistory = [];
+            sessionState.techFlowHistory = [];
+            sessionState.revealStage = 0;
+            sessionState.itemIndex = { characters: 0, places: 0, ideas: 0 };
+            sessionState.reactions = {};
+            sessionState.canvas = { characters: [], places: [], ideas: [] };
+            sessionState.tonePreferences = [];
+            sessionState.skipped = [];
+            // Reset agentic state (using imported AgentContext)
+            agentContext.reset();
+            if (brain) brain.reset();
+        }
+
+        // =============================================================
+        // Initialize Agent Brain (using imported modules)
+        // =============================================================
+
+        // Skill execution callback - wires brain to existing UI renderers
+        async function handleSkillExecute(skillName, args) {
+            const device = activeDevice;
+
+            switch (skillName) {
+                // =========================================================
+                // NEW 7-SKILL ARCHITECTURE
+                // =========================================================
+
+                case 'analyze_gallery': {
+                    const { photo_urls } = args;
+
+                    addTypingIndicator(device, 'analyze');
+                    addTechFlow('agentic', 'Skill Invoked', 'Agent called <strong>analyze_gallery</strong>');
+
+                    try {
+                        const response = await fetch(`${API_BASE}/api/analyze-gallery`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ photos: photo_urls })
+                        });
+
+                        if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+                        const result = await response.json();
+                        sessionState.analysisResult = result;
+                        sessionState.photoUrls = photo_urls;
+
+                        addTechFlow('status', 'Analysis Complete', 'Gallery understood');
+                        removeTypingIndicator(device);
+                        displayResultsInChat(device, result);
+                        return result;
+
+                    } catch (error) {
+                        console.error('[Analysis] Failed:', error);
+                        removeTypingIndicator(device);
+                        addChatMessage(device, 'assistant', `Something went wrong: ${error.message}`);
+                        return null;
+                    }
+                }
+
+                case 'show_card': {
+                    const { card_type, subject_id, subject, message, hasMore, content } = args;
+
+                    // A2UI: Message goes IN the card, not separate
+                    // Handle different card types
+                    if (card_type === 'subject' && subject_id && subject) {
+                        const idx = parseInt(subject_id.split('_')[1]);
+                        if (subject_id.startsWith('char_')) {
+                            renderSingleCharacterCard(device, subject, idx, hasMore, message);
+                        } else if (subject_id.startsWith('place_')) {
+                            renderSinglePlaceCard(device, subject, idx, hasMore, message);
+                        } else if (subject_id.startsWith('idea_')) {
+                            renderSingleIdeaCard(device, subject, idx, hasMore, message);
+                        }
+                        setDebugCurrentDisplay({ type: 'subject_card', subject_id, subject });
+                    } else if (card_type === 'creation_suggestion' && subject_id) {
+                        const idx = parseInt(subject_id.split('_')[1]);
+                        suggestMakeAnimeSkill(device, idx, message);
+                        setDebugCurrentDisplay({ type: 'creation_suggestion', subject_id });
+                    } else if (card_type === 'summary') {
+                        // Summary is just a message card
+                        if (message) addChatMessage(device, 'assistant', message);
+                        setDebugCurrentDisplay({ type: 'summary', message });
+                    }
+                    break;
+                }
+
+                case 'create_character': {
+                    const { subject_id, photo_indices, name } = args;
+                    const idx = parseInt(subject_id.split('_')[1]);
+                    // Open the bottom sheet for photo selection
+                    openBottomSheet(device, idx);
+                    break;
+                }
+
+                case 'create_manga': {
+                    const { characters, panel_count, story_beats, dialogues, style } = args;
+                    await generateAndShowManga(device, characters, panel_count, story_beats, style, dialogues);
+                    break;
+                }
+
+                case 'ask_story_question': {
+                    const { character, question, options, story_context } = args;
+                    renderStoryQuestionCard(device, character, question, options, story_context);
+                    setDebugCurrentDisplay({ type: 'story_question', character_name: character?.name, question });
+                    break;
+                }
+
+                case 'confirm_story': {
+                    const { character, synopsis, story_beats, dialogues } = args;
+                    renderStoryConfirmCard(device, character, synopsis, story_beats, dialogues);
+                    setDebugCurrentDisplay({ type: 'story_confirm', character_name: character?.name, synopsis });
+                    break;
+                }
+
+                case 'respond': {
+                    // Text response handled by onTextResponse callback
+                    break;
+                }
+
+                // =========================================================
+                // LEGACY SKILL HANDLERS (backwards compatibility)
+                // =========================================================
+
+                case 'highlight_subject': {
+                    const { subject_id, subject, intro_message, hasMore } = args;
+                    if (intro_message) {
+                        addChatMessage(device, 'assistant', intro_message);
+                        await delay(300);
+                    }
+                    const idx = parseInt(subject_id.split('_')[1]);
+                    if (subject_id.startsWith('char_')) {
+                        renderSingleCharacterCard(device, subject, idx, hasMore, null);
+                    } else if (subject_id.startsWith('place_')) {
+                        renderSinglePlaceCard(device, subject, idx, hasMore, null);
+                    } else if (subject_id.startsWith('idea_')) {
+                        renderSingleIdeaCard(device, subject, idx, hasMore, null);
+                    }
+                    break;
+                }
+
+                case 'suggest_creation': {
+                    const { charIndex } = args;
+                    suggestMakeAnimeSkill(device, charIndex);
+                    break;
+                }
+
+                case 'collect_references': {
+                    const { charIndex } = args;
+                    openBottomSheet(device, charIndex);
+                    break;
+                }
+
+                case 'wrap_up_exploration': {
+                    const { summary_message } = args;
+                    addChatMessage(device, 'assistant', summary_message);
+                    break;
+                }
+
+                case 'develop_story': {
+                    const { character, story_type, initial_concept } = args;
+                    renderStoryDevelopmentCard(device, character, story_type, initial_concept);
+                    break;
+                }
+
+                case 'generate_manga': {
+                    const { character, panel_count, story_beats, style } = args;
+                    await generateAndShowManga(device, character, panel_count, story_beats, style);
+                    break;
+                }
+
+                case 'generate_manga_from_concept': {
+                    const { character, character_name, concept, style } = args;
+                    await generateMangaFromConcept(device, character, character_name, concept, style);
+                    break;
+                }
+            }
+        }
+
+        // Initialize brain after DOM and other setup
+        function initializeBrain() {
+            if (!AgentBrain) {
+                console.warn('[Agent] AgentBrain not loaded yet, skipping initialization');
+                return false;
+            }
+            brain = new AgentBrain({
+                // Note: No API key needed - calls proxied through backend
+                context: agentContext,
+                getSessionState: () => ({
+                    analysisResult: sessionState.analysisResult,
+                    canvas: sessionState.canvas,
+                    photoUrls: sessionState.photoUrls
+                }),
+                onSkillExecute: handleSkillExecute,
+                onTextResponse: (text) => {
+                    removeTypingIndicator(activeDevice);
+                    addChatMessage(activeDevice, 'assistant', text, true); // animate=true for live responses
+                },
+                onTechFlow: (type, label, html) => addTechFlow(type, label, html)
+            });
+            console.log('[Agent] Brain initialized with modular architecture');
+            return true;
+        }
+
+        // Wrapper for brain.chat (maintains backwards compatibility)
+        async function agentChat(userAction, spinnerMode = 'think') {
+            if (!brain) {
+                console.warn('[Agent] Brain not initialized, initializing now...');
+                if (!initializeBrain()) {
+                    console.error('[Agent] Failed to initialize brain');
+                    return { type: 'error', error: 'Agent not available' };
+                }
+            }
+
+            // Show typing indicator while waiting for agent
+            addTypingIndicator(activeDevice, spinnerMode);
+
+            try {
+                const result = await brain.chat(userAction);
+
+                // Sync debug state to server for Claude Code introspection
+                syncDebugState(userAction, result);
+
+                return result;
+            } finally {
+                // Always remove typing indicator
+                removeTypingIndicator(activeDevice);
+            }
+        }
+
+        // Debug state tracking
+        let _debugCurrentDisplay = null;  // Currently displayed card/message
+        let _debugSessionId = SESSION_ID;
+
+        // Set current display for debugging (call when rendering cards)
+        function setDebugCurrentDisplay(displayInfo) {
+            _debugCurrentDisplay = {
+                ...displayInfo,
+                timestamp: new Date().toISOString(),
+            };
+            // Auto-sync when display changes
+            syncDebugState(null, null);
+        }
+
+        // Debug state sync - sends current session state to server
+        // Claude Code can query /api/debug/session to inspect this
+        async function syncDebugState(lastUserAction, lastAgentResponse) {
+            try {
+                // Capture recent chat messages from DOM for full visibility
+                const chatMessages = [];
+                // Get all chat messages from the active container
+                const container = document.getElementById('android-chat-messages') ||
+                    document.getElementById('phone-chat-messages');
+                if (container) {
+                    const msgElements = container.querySelectorAll('.chat-msg');
+                    msgElements.forEach((el, i) => {
+                        const isUser = el.classList.contains('user');
+                        // Get text from bubble, or from innerText if no bubble found
+                        const bubble = el.querySelector('.chat-msg-bubble');
+                        const text = bubble?.innerText || el.innerText || '';
+                        if (text.trim()) {
+                            chatMessages.push({
+                                index: i,
+                                role: isUser ? 'user' : 'assistant',
+                                text: text.slice(0, 500),  // First 500 chars
+                            });
+                        }
+                    });
+                }
+
+                const debugPayload = {
+                    session_id: _debugSessionId,
+                    context: {
+                        shown: [...(agentContext?.shown || [])],
+                        loved: [...(agentContext?.loved || [])],
+                        skipped: [...(agentContext?.skipped || [])],
+                        pendingSkill: agentContext?.pendingSkill || null,
+                    },
+                    conversation_history: brain?.conversationHistory || [],
+                    pending_story: agentContext?.pendingStory || null,
+                    saved_characters: agentContext?.savedCharacters || [],
+                    generated_characters: agentContext?.generatedCharacters || [],
+                    analysis_result: sessionState.analysisResult ? {
+                        opening_reaction: sessionState.analysisResult.opening_reaction,
+                        character_count: sessionState.analysisResult.life_characters?.length || 0,
+                        place_count: sessionState.analysisResult.meaningful_places?.length || 0,
+                        spark_count: sessionState.analysisResult.creative_sparks?.length || 0,
+                        // Full details for debugging
+                        life_characters: sessionState.analysisResult.life_characters?.map(c => ({
+                            name: c.name_suggestion,
+                            who: c.who_they_are,
+                            type: c.type,
+                            appearances: c.appearances,
+                        })) || [],
+                        meaningful_places: sessionState.analysisResult.meaningful_places?.map(p => ({
+                            description: p.place_description,
+                            why_matters: p.why_it_seems_to_matter,
+                            mood: p.mood,
+                        })) || [],
+                        creative_sparks: sessionState.analysisResult.creative_sparks?.map(s => ({
+                            idea: s.idea,
+                            why_fits: s.why_this_fits,
+                        })) || [],
+                    } : null,
+                    last_user_action: lastUserAction,
+                    last_agent_response: lastAgentResponse,
+                    // NEW: Current display and chat messages
+                    current_display: _debugCurrentDisplay,
+                    chat_messages_ui: chatMessages.slice(-10),  // Last 10 messages from UI
+                };
+
+                await fetch(`${API_BASE}/api/debug/session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(debugPayload),
+                });
+            } catch (e) {
+                // Silent fail - debug sync is optional
+                console.debug('[Debug] Failed to sync session state:', e.message);
+            }
+        }
+
+        // Utility: Get subject by ID
+        function getSubjectById(subjectId) {
+            const result = sessionState.analysisResult;
+            if (!result) return null;
+
+            const [type, idxStr] = subjectId.split('_');
+            const idx = parseInt(idxStr);
+
+            if (type === 'char') return result.life_characters?.[idx];
+            if (type === 'place') return result.meaningful_places?.[idx];
+            if (type === 'idea') return result.creative_sparks?.[idx];
+            return null;
+        }
+
+        // Utility: Check for unshown subjects
+        function hasMoreUnshownSubjects() {
+            return agentContext.hasUnshownSubjects(sessionState.analysisResult);
+        }
+
+        // Utility: Delay helper
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // =============================================================
+        // Deployment Mode Detection
+        // =============================================================
+
+        // Detect deployment mode (API key always server-side)
+        const DEPLOYMENT_MODE = (() => {
+            const { hostname, port, protocol } = window.location;
+            if (port === '8000') return 'backend';  // FastAPI server
+            if (protocol === 'file:') return 'static';  // Local file
+            if (hostname === 'localhost' || hostname === '127.0.0.1') return 'local';
+            return 'cloudflare';  // Cloudflare Pages (key in CF KV)
+        })();
+
+        // API base URL
+        const API_BASE = DEPLOYMENT_MODE === 'backend' ? '' : 'http://localhost:8000';
+
+        // =============================================================
+        // Chat View & A2UI Widget Functions
+        // =============================================================
+
+        // Current active device
+        let activeDevice = DEVICE; // Always android
+
+        // Switch between views (Photos, Create, Workspace)
+        function switchView(device, viewName) {
+            activeDevice = device;
+            const photosApp = document.getElementById(`${device}-photos`);
+
+            // Hide all views, show the selected one
+            const views = photosApp.querySelectorAll('.app-view');
+            views.forEach(view => view.classList.remove('active'));
+            document.getElementById(`${device}-${viewName}-view`).classList.add('active');
+
+            // Update nav active state
+            const navItems = photosApp.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            const navIndex = viewName === 'photos' ? 0 : (viewName === 'create' ? 1 : 2);
+            navItems[navIndex].classList.add('active');
+
+            // If switching to Create, initialize or restore the chat
+            if (viewName === 'create') {
+                if (sessionState.initialized) {
+                    // Already initialized - just restore the view (content is preserved in DOM)
+                    restoreTechFlowPanel();
+                } else {
+                    // First time - initialize fresh
+                    initCreateView(device);
+                }
+            }
+
+            // If switching to Workspace, render the accumulated assets
+            if (viewName === 'workspace') {
+                renderWorkspaceView(device);
+            }
+        }
+
+        // Restore tech flow panel from session state
+        function restoreTechFlowPanel() {
+            const log = document.getElementById('message-log');
+            log.innerHTML = '';
+
+            // Re-render tech flow items from history
+            sessionState.techFlowHistory.forEach(item => {
+                renderTechFlowItem(item.type, item.label, item.text, false);
+            });
+        }
+
+        // Initialize Create view with welcome message (only called once per session)
+        function initCreateView(device) {
+            const messagesContainer = document.getElementById(`${device}-chat-messages`);
+
+            // Fresh session - clear and initialize
+            messagesContainer.innerHTML = '';
+            document.getElementById('message-log').innerHTML = '';
+
+            // Mark as initialized
+            sessionState.initialized = true;
+
+            // Capabilities panel starts empty — only shows capabilities as they're demonstrated
+            // (No pre-loaded marketing messages)
+
+            // Add welcome message and permission card in chat
+            setTimeout(() => {
+                addChatMessage(device, 'assistant', 'Hi! ✨ Let me discover what we can create from your photos!');
+            }, 400);
+
+            setTimeout(() => {
+                addPermissionCard(device);
+                // Tech flow only shows when capabilities are actually demonstrated
+            }, 800);
+
+            // Save session after initialization
+            setTimeout(() => saveSession(), 1000);
+        }
+
+        // Restore chat messages from session state
+        function restoreChatFromSession(device) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            container.innerHTML = '';
+
+            sessionState.chatHistory.forEach(item => {
+                if (item.type === 'message') {
+                    renderChatMessage(device, item.role, item.content, false);
+                } else if (item.type === 'permission_card') {
+                    if (!sessionState.permissionGranted) {
+                        renderPermissionCard(device, false);
+                    }
+                } else if (item.type === 'result_card') {
+                    renderResultCard(device, item.result, false);
+                } else if (item.type === 'suggestion_chips') {
+                    renderSuggestionChips(device, item.suggestion, false);
+                }
+            });
+        }
+
+        // Add a chat message (text bubble)
+        // animate: true for live responses (typewriter effect), false for restoration
+        function addChatMessage(device, role, text, animate = false) {
+            // Save to session history
+            sessionState.chatHistory.push({ type: 'message', role, content: text });
+            saveSession();
+
+            // Render it (with optional animation for assistant messages)
+            renderChatMessage(device, role, text, true, animate);
+        }
+
+        // Render a chat message (without saving - for restoration)
+        function renderChatMessage(device, role, text, scroll = true, animate = false) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const msg = document.createElement('div');
+            msg.className = `chat-msg ${role}`;
+
+            if (animate && role === 'assistant') {
+                // Typewriter animation for assistant messages
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-msg-bubble';
+                msg.appendChild(bubble);
+                container.appendChild(msg);
+
+                let charIndex = 0;
+                const typeSpeed = 15; // ms per character (fast but readable)
+
+                function typeChar() {
+                    if (charIndex < text.length) {
+                        bubble.textContent += text[charIndex];
+                        charIndex++;
+                        // Auto-scroll as we type
+                        container.scrollTop = container.scrollHeight;
+                        setTimeout(typeChar, typeSpeed);
+                    }
+                }
+                typeChar();
+            } else {
+                msg.innerHTML = `<div class="chat-msg-bubble">${text}</div>`;
+                container.appendChild(msg);
+                if (scroll) container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        // Render chat message with typewriter animation (for live responses)
+        function renderChatMessageAnimated(device, role, text) {
+            renderChatMessage(device, role, text, true, true);
+        }
+
+        // Auto-scroll setup for chat container (like Gemini mobile)
+        function setupChatAutoScroll(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error('[AutoScroll] Container not found:', containerId);
+                return;
+            }
+
+            let lastScrollHeight = 0;
+            let lastChildCount = 0;
+
+            // Poll for content changes and scroll
+            setInterval(() => {
+                const currentHeight = container.scrollHeight;
+                const currentChildren = container.children.length;
+
+                // Scroll if height changed OR children changed
+                if (currentHeight !== lastScrollHeight || currentChildren !== lastChildCount) {
+                    lastScrollHeight = currentHeight;
+                    lastChildCount = currentChildren;
+
+                    // Force scroll to absolute bottom
+                    container.scrollTop = container.scrollHeight + 1000;
+
+                    console.log('[AutoScroll] height:', currentHeight, 'children:', currentChildren,
+                                'scrollTop:', container.scrollTop, 'clientHeight:', container.clientHeight);
+                }
+            }, 150);
+
+            // Also scroll immediately when called
+            container.scrollTop = container.scrollHeight;
+            console.log('[AutoScroll] Initialized for', containerId,
+                        '- scrollHeight:', container.scrollHeight,
+                        '- clientHeight:', container.clientHeight,
+                        '- can scroll:', container.scrollHeight > container.clientHeight);
+        }
+
+        // Fun spinner messages (like Claude Code)
+        const spinnerMessages = {
+            analyze: [
+                '📸 Looking through your photos...',
+                '👀 Spotting familiar faces...',
+                '🏠 Finding meaningful places...',
+                '✨ Discovering creative possibilities...',
+                '🎨 Understanding visual patterns...',
+                '💭 Connecting the stories...',
+                '🔮 Seeing what makes your gallery unique...'
+            ],
+            think: [
+                '🤔 Thinking...',
+                '💭 Considering options...',
+                '✨ Getting creative...',
+                '🎯 Deciding what to show you...'
+            ],
+            generate: [
+                '🎨 Generating your character...',
+                '✨ Adding artistic flair...',
+                '🖌️ Refining details...',
+                '🌟 Almost there...'
+            ],
+            manga: [
+                '🎬 Setting up the scene...',
+                '✏️ Sketching the panels...',
+                '🎨 Adding colors and details...',
+                '💬 Writing the dialogue...',
+                '✨ Bringing your story to life...',
+                '🖼️ Composing the layout...',
+                '🌟 Final touches...'
+            ]
+        };
+
+        let spinnerInterval = null;
+
+        // Add animated thinking indicator with rotating messages
+        function addTypingIndicator(device, mode = 'think') {
+            removeTypingIndicator(device); // Clear any existing
+
+            const container = document.getElementById(`${device}-chat-messages`);
+            const typing = document.createElement('div');
+            typing.className = 'chat-msg assistant';
+            typing.id = `${device}-typing`;
+
+            const messages = spinnerMessages[mode] || spinnerMessages.think;
+            let msgIndex = 0;
+
+            typing.innerHTML = `
+                <div class="chat-msg-bubble thinking-bubble">
+                    <span class="thinking-spinner">◐</span>
+                    <span class="thinking-text">${messages[0]}</span>
+                </div>
+            `;
+            container.appendChild(typing);
+            container.scrollTop = container.scrollHeight;
+
+            // Rotate spinner character
+            const spinChars = ['◐', '◓', '◑', '◒'];
+            let spinIdx = 0;
+
+            // Update message and spinner
+            spinnerInterval = setInterval(() => {
+                const spinner = typing.querySelector('.thinking-spinner');
+                const text = typing.querySelector('.thinking-text');
+                if (spinner && text) {
+                    spinIdx = (spinIdx + 1) % spinChars.length;
+                    spinner.textContent = spinChars[spinIdx];
+
+                    // Change message every 4 spins (every 2 seconds)
+                    if (spinIdx === 0) {
+                        msgIndex = (msgIndex + 1) % messages.length;
+                        text.textContent = messages[msgIndex];
+                    }
+                }
+                container.scrollTop = container.scrollHeight;
+            }, 500);
+        }
+
+        // Remove typing indicator
+        function removeTypingIndicator(device) {
+            if (spinnerInterval) {
+                clearInterval(spinnerInterval);
+                spinnerInterval = null;
+            }
+            const typing = document.getElementById(`${device}-typing`);
+            if (typing) typing.remove();
+        }
+
+        // Add permission card (A2UI widget)
+        function addPermissionCard(device) {
+            // Save to session history
+            sessionState.chatHistory.push({ type: 'permission_card' });
+            saveSession();
+
+            // Render it
+            renderPermissionCard(device, true);
+        }
+
+        // Render permission card (without saving - for restoration)
+        function renderPermissionCard(device, scroll = true) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+            card.id = `${device}-permission-card`;
+            card.innerHTML = `
+                <div class="a2ui-card">
+                    <div class="a2ui-card-header">
+                        <div class="a2ui-card-icon">
+                            <span class="material-icons-outlined">photo_library</span>
+                        </div>
+                        <div>
+                            <div class="a2ui-card-title">Access your photos?</div>
+                            <div class="a2ui-card-subtitle">${photoSequences.length} photos in gallery</div>
+                        </div>
+                    </div>
+                    <div class="a2ui-card-body">
+                        <p style="font-size: 13px; color: var(--on-surface-variant); margin: 0;">
+                            I'll use Gemini 3 to understand your photos and discover characters, people, and worlds you can bring to life.
+                        </p>
+                    </div>
+                    <div class="a2ui-card-actions">
+                        <button class="a2ui-btn secondary" onclick="handlePermissionDeny('${device}')">Not now</button>
+                        <button class="a2ui-btn primary" onclick="handlePermissionAllow('${device}')">Allow</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+            if (scroll) container.scrollTop = container.scrollHeight;
+        }
+
+        // Handle permission deny
+        function handlePermissionDeny(device) {
+            // Hide permission card
+            const permCard = document.getElementById(`${device}-permission-card`);
+            if (permCard) permCard.remove();
+
+            addChatMessage(device, 'user', 'Not now');
+            setTimeout(() => {
+                addChatMessage(device, 'assistant', 'No problem! You can tap any photo in your gallery to transform it individually, or come back here anytime. 😊');
+            }, 500);
+        }
+
+        // Handle permission allow - AGENTIC: Let the agent decide what to do
+        async function handlePermissionAllow(device) {
+            // Mark permission as granted in session
+            sessionState.permissionGranted = true;
+            saveSession();
+
+            // Hide permission card
+            const permCard = document.getElementById(`${device}-permission-card`);
+            if (permCard) permCard.remove();
+
+            addChatMessage(device, 'user', 'Allow');
+
+            // Set up photo URLs in session state for the agent to use
+            const photoUrls = photoSequences.map(p => p.src);
+            sessionState.photoUrls = photoUrls;
+            console.log('[Agent] Permission granted, photos available:', photoUrls.length);
+
+            // Let the agent decide what to do (it should call analyze_gallery)
+            await agentChat(`User granted photo access. ${photoUrls.length} photos available.`);
+        }
+
+        // Display results as conversational turns - AGENTIC FLOW
+        function displayResultsInChat(device, result) {
+            // Save result to session state
+            sessionState.analysisResult = result;
+            sessionState.photoUrls = photoSequences.map(p => p.src); // Store photo URLs for thumbnails
+            sessionState.chatHistory.push({ type: 'result_card', result });
+            sessionState.revealStage = 0; // Track what we've shown (legacy, kept for compat)
+            sessionState.itemIndex = { characters: 0, places: 0, ideas: 0 }; // Reset item indices (legacy)
+            sessionState.reactions = {}; // Reset reactions
+            saveSession();
+
+            // Reset agentic state for new analysis
+            if (agentContext) {
+                agentContext.shown.clear();
+                agentContext.loved.clear();
+                agentContext.skipped.clear();
+            }
+            // NOTE: Do NOT reset brain.conversationHistory here!
+            // This function is called DURING skill execution, before continueAfterFunctionCall().
+            // Resetting here would break the function response turn order.
+
+            // A2UI: Don't show a separate opening message here
+            // The agent will include its message IN the first show_card call
+
+            // Log capability being demonstrated
+            addTechFlow('context', '1M Context', 'All photos analyzed in <strong>one request</strong> — no batching');
+            addTechFlow('agentic', 'Agent Mode', 'Agent will decide what to show based on <strong>your reactions</strong>');
+
+            // Note: Don't call agentChat here - the function response flow
+            // will automatically trigger Gemini to continue
+        }
+
+        // Show the next reveal prompt based on what stage we're at
+        function showNextRevealPrompt(device) {
+            const result = sessionState.analysisResult;
+            const stage = sessionState.revealStage || 0;
+
+            if (stage === 0 && result?.life_characters?.length > 0) {
+                // Offer to show characters
+                const count = result.life_characters.length;
+                const preview = result.life_characters[0];
+                const hint = preview.type === 'pet' ? '🐱' : '👤';
+                renderRevealPrompt(device,
+                    `I noticed ${count} recurring presence${count > 1 ? 's' : ''} in your photos... ${hint}`,
+                    'Show me who',
+                    () => revealCharacters(device)
+                );
+            } else if (stage === 1 && result?.meaningful_places?.length > 0) {
+                // Offer to show places
+                const count = result.meaningful_places.length;
+                renderRevealPrompt(device,
+                    `There are also ${count} place${count > 1 ? 's' : ''} that seem to matter to you... 🌍`,
+                    'Show me where',
+                    () => revealPlaces(device)
+                );
+            } else if (stage === 2 && result?.creative_sparks?.length > 0) {
+                // Offer to show ideas
+                renderRevealPrompt(device,
+                    `I have some ideas for what we could make together... ✨`,
+                    'Tell me',
+                    () => revealIdeas(device)
+                );
+            } else {
+                // All revealed, show final prompt
+                addChatMessage(device, 'assistant',
+                    'That\'s what I see in your gallery. Want to start creating, or explore more?'
+                );
+            }
+        }
+
+        // Render a "reveal more" prompt with a single action button
+        function renderRevealPrompt(device, message, buttonText, onClick) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const prompt = document.createElement('div');
+            prompt.className = 'chat-msg assistant';
+            prompt.innerHTML = `
+                <div class="chat-msg-bubble">
+                    ${message}
+                    <div style="margin-top: 8px;">
+                        <button class="a2ui-chip" style="background: var(--primary); color: white;" id="reveal-btn">
+                            ${buttonText} →
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(prompt);
+            container.scrollTop = container.scrollHeight;
+
+            // Attach click handler
+            prompt.querySelector('#reveal-btn').onclick = () => {
+                // Remove this prompt
+                prompt.remove();
+                // Execute the reveal
+                onClick();
+            };
+        }
+
+        // Track which item we're showing within each section
+        if (!sessionState.itemIndex) {
+            sessionState.itemIndex = { characters: 0, places: 0, ideas: 0 };
+        }
+
+        // Reveal characters ONE AT A TIME
+        function revealCharacters(device) {
+            const result = sessionState.analysisResult;
+            const characters = result?.life_characters || [];
+            const idx = sessionState.itemIndex.characters;
+
+            if (idx === 0) {
+                addTechFlow('multimodal', 'Cross-Image Reasoning', 'Recognized <strong>same subjects</strong> across multiple photos');
+            }
+
+            if (idx < characters.length) {
+                const hasMore = idx + 1 < characters.length;
+                // Show this character with inline next button
+                renderSingleCharacterCard(device, characters[idx], idx, hasMore, () => revealCharacters(device));
+                sessionState.itemIndex.characters++;
+                saveSession();
+
+                // If no more characters, move to next section after delay
+                if (!hasMore) {
+                    setTimeout(() => {
+                        sessionState.revealStage = 1;
+                        saveSession();
+                        showNextRevealPrompt(device);
+                    }, 400);
+                }
+            }
+        }
+
+        // Reveal places ONE AT A TIME
+        function revealPlaces(device) {
+            const result = sessionState.analysisResult;
+            const places = result?.meaningful_places || [];
+            const idx = sessionState.itemIndex.places;
+
+            if (idx < places.length) {
+                const hasMore = idx + 1 < places.length;
+                renderSinglePlaceCard(device, places[idx], idx, hasMore, () => revealPlaces(device));
+                sessionState.itemIndex.places++;
+                saveSession();
+
+                if (!hasMore) {
+                    setTimeout(() => {
+                        sessionState.revealStage = 2;
+                        saveSession();
+                        showNextRevealPrompt(device);
+                    }, 400);
+                }
+            }
+        }
+
+        // Reveal ideas ONE AT A TIME
+        function revealIdeas(device) {
+            const result = sessionState.analysisResult;
+            const sparks = result?.creative_sparks || [];
+            const idx = sessionState.itemIndex.ideas;
+
+            if (idx === 0) {
+                addTechFlow('agentic', 'Personalized Ideas', 'Creative suggestions based on <strong>your unique gallery</strong>');
+            }
+
+            if (idx < sparks.length) {
+                const hasMore = idx + 1 < sparks.length;
+                renderSingleIdeaCard(device, sparks[idx], idx, hasMore, () => revealIdeas(device));
+                sessionState.itemIndex.ideas++;
+                saveSession();
+
+                if (!hasMore) {
+                    setTimeout(() => {
+                        sessionState.revealStage = 3;
+                        saveSession();
+                        showNextRevealPrompt(device);
+                    }, 400);
+                }
+            }
+        }
+
+        // Small "continue" prompt inline
+        function renderContinuePrompt(device, text, onClick) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const prompt = document.createElement('div');
+            prompt.className = 'chat-msg assistant';
+            prompt.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 6px 12px; display: inline-block;">
+                    <button class="a2ui-chip" style="margin: 0; font-size: 11px;" id="continue-btn">
+                        ${text} →
+                    </button>
+                </div>
+            `;
+            container.appendChild(prompt);
+            container.scrollTop = container.scrollHeight;
+
+            prompt.querySelector('#continue-btn').onclick = () => {
+                prompt.remove();
+                onClick();
+            };
+        }
+
+        // Single character card - A2UI: message + image + reactions + actions
+        function renderSingleCharacterCard(device, char, index, showNext, message) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            // Use description (who_they_are) for display, not name_suggestion
+            // Name suggestion is only used when actually creating the character
+            const displayName = char.who_they_are || char.name_suggestion;
+            const cardId = `char-card-${index}`;
+            const subjectId = `char_${index}`;
+
+            // Use image_indices directly from Gemini 3 - first index is the best photo
+            const bestPhotoIdx = char.image_indices?.[0];
+            const thumbUrl = (bestPhotoIdx !== undefined && sessionState.photoUrls?.[bestPhotoIdx])
+                ? sessionState.photoUrls[bestPhotoIdx]
+                : null;
+            const thumbHtml = thumbUrl
+                ? `<img src="${thumbUrl}" class="card-thumb" alt="${displayName}">`
+                : '';
+
+            // A2UI: Short message as card header
+            const messageHtml = message
+                ? `<div style="font-size: 13px; color: var(--on-surface); margin-bottom: 6px;">${message}</div>`
+                : '';
+
+            // Can create character if 3+ photos
+            const canCreateChar = (char.appearances || char.image_indices?.length || 0) >= 3;
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 10px 12px;" id="${cardId}">
+                    ${messageHtml}
+                    ${thumbHtml}
+                    <div style="display: flex; align-items: center; gap: 6px; margin: 6px 0;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 14px;">${displayName}</div>
+                            <div style="font-size: 11px; color: var(--on-surface-variant);">${char.appearances} photos</div>
+                        </div>
+                        <div class="reactions">
+                            <button class="reaction-btn love" id="love-${cardId}" title="Love it!"></button>
+                            <button class="reaction-btn haha" id="haha-${cardId}" title="Fun!"></button>
+                        </div>
+                    </div>
+                    <div class="card-actions" style="margin-top: 8px;">
+                        ${canCreateChar ? `<button class="action-btn primary" id="make-anime-${cardId}">✨ Create Character</button>` : ''}
+                        ${showNext ? `<button class="action-btn secondary" id="next-${cardId}">Next →</button>` : ''}
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+
+            // Attach handlers - reactions can also trigger character creation
+            const loveBtn = card.querySelector(`#love-${cardId}`);
+            const hahaBtn = card.querySelector(`#haha-${cardId}`);
+            if (loveBtn) {
+                loveBtn.onclick = () => {
+                    handleReaction('character', index, 'love', loveBtn);
+                    if (canCreateChar) {
+                        // Love reaction on subject with 3+ photos → suggest creating character
+                        agentChat(`User loved ${displayName} (${subjectId}). They might want to create a character!`);
+                    }
+                };
+            }
+            if (hahaBtn) {
+                hahaBtn.onclick = () => {
+                    handleReaction('character', index, 'haha', hahaBtn);
+                };
+            }
+            if (canCreateChar) {
+                const createBtn = card.querySelector(`#make-anime-${cardId}`);
+                if (createBtn) {
+                    createBtn.onclick = () => openBottomSheet(device, index);
+                }
+            }
+            if (showNext) {
+                const nextBtn = card.querySelector(`#next-${cardId}`);
+                if (nextBtn) {
+                    nextBtn.onclick = () => handleAgenticNext(subjectId, displayName);
+                }
+            }
+        }
+
+        // Agentic Next handler - sends action to agent
+        function handleAgenticNext(subjectId, name) {
+            agentChat(`User clicked Next on ${subjectId}.`);
+        }
+
+        // Single place card - A2UI: message + image + actions all in one widget
+        function renderSinglePlaceCard(device, place, index, showNext, message) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+            const cardId = `place-card-${index}`;
+            const subjectId = `place_${index}`;
+            const name = place.place_description;
+
+            // Use image_indices directly from Gemini 3 - first index is the best photo
+            const bestPhotoIdx = place.image_indices?.[0];
+            const thumbUrl = (bestPhotoIdx !== undefined && sessionState.photoUrls?.[bestPhotoIdx])
+                ? sessionState.photoUrls[bestPhotoIdx]
+                : null;
+            const thumbHtml = thumbUrl
+                ? `<img src="${thumbUrl}" class="card-thumb" alt="${name}">`
+                : '';
+
+            // A2UI: Message goes IN the card header
+            const messageHtml = message
+                ? `<div style="font-size: 13px; color: var(--on-surface); margin-bottom: 8px; line-height: 1.4;">${message}</div>`
+                : '';
+
+            // Next button
+            const nextHtml = showNext
+                ? `<button class="action-btn secondary" id="next-${cardId}">Next →</button>`
+                : '';
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 10px 12px;" id="${cardId}">
+                    ${messageHtml}
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                        <span style="font-size: 18px;">🌍</span>
+                        <div style="flex: 1;">
+                            <div style="font-weight: 600; font-size: 13px;">${name}</div>
+                            <div style="font-size: 10px; color: var(--on-surface-variant);">${place.mood}</div>
+                        </div>
+                    </div>
+                    ${thumbHtml}
+                    <div style="font-size: 12px; color: var(--on-surface-variant); line-height: 1.4; margin-bottom: 8px;">
+                        ${place.why_it_seems_to_matter}
+                    </div>
+                    <div class="card-actions">
+                        ${nextHtml}
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+
+            // Attach next handler
+            if (showNext) {
+                const nextBtn = card.querySelector(`#next-${cardId}`);
+                if (nextBtn) {
+                    nextBtn.onclick = () => handleAgenticNext(subjectId, name);
+                }
+            }
+        }
+
+        // Single idea card - A2UI: message + content + actions all in one widget
+        function renderSingleIdeaCard(device, spark, index, showNext, message) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+            const cardId = `idea-card-${index}`;
+            const subjectId = `idea_${index}`;
+            const name = spark.idea;
+
+            // A2UI: Message goes IN the card header
+            const messageHtml = message
+                ? `<div style="font-size: 13px; color: var(--on-surface); margin-bottom: 8px; line-height: 1.4;">${message}</div>`
+                : '';
+
+            const nextHtml = showNext
+                ? `<button class="action-btn secondary" id="next-${cardId}">Next →</button>`
+                : '';
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 10px 12px;" id="${cardId}">
+                    ${messageHtml}
+                    <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                        <span style="font-size: 20px;">💡</span>
+                        <div style="font-weight: 600; font-size: 13px; line-height: 1.3;">${name}</div>
+                    </div>
+                    <div style="font-size: 12px; color: var(--on-surface-variant); line-height: 1.4; margin-bottom: 8px;">
+                        ${spark.why_this_fits}
+                    </div>
+                    <div class="card-actions">
+                        <button class="action-btn primary" id="try-${cardId}">Let's try this ✨</button>
+                        ${nextHtml}
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+
+            // Attach handlers
+            card.querySelector(`#try-${cardId}`).onclick = () => handleIdeaAction(device, spark, 'try');
+
+            if (showNext) {
+                const nextBtn = card.querySelector(`#next-${cardId}`);
+                if (nextBtn) {
+                    nextBtn.onclick = () => handleAgenticNext(subjectId, name);
+                }
+            }
+        }
+
+        // Handle idea exploration actions
+        async function handleIdeaAction(device, spark, action) {
+            if (action === 'try') {
+                // Add to canvas
+                if (!sessionState.canvas.ideas.includes(spark.idea)) {
+                    sessionState.canvas.ideas.push(spark.idea);
+                }
+                addTechFlow('agentic', 'Idea Selected', `<strong>${spark.idea}</strong> → starting development`);
+
+                // IMPORTANT: Don't just say "it's on your canvas" — actually START developing it!
+                // Trigger the agent to help develop this creative idea
+                await agentChat(`User wants to try: "${spark.idea}"`);
+
+            } else if (action === 'more') {
+                // Expand on the idea
+                addChatMessage(device, 'assistant', `Here's more about "${spark.idea}":\n\n${spark.based_on ? `**Based on:** ${spark.based_on}\n\n` : ''}This could work beautifully with the characters and places from your gallery. Want to explore this direction?`);
+
+                // Debug sync
+                setDebugCurrentDisplay({
+                    type: 'idea_action',
+                    action: 'more',
+                    idea: spark.idea,
+                });
+            }
+            saveSession();
+        }
+
+        // Handle reaction click - context-aware personalization (AGENTIC)
+        function handleReaction(type, index, reaction, button) {
+            // Visual feedback - highlight the clicked reaction
+            const bar = button.parentElement;
+            bar.querySelectorAll('.reaction-btn').forEach(btn => btn.classList.remove('selected'));
+            button.classList.add('selected');
+
+            // Track reaction in session state
+            if (!sessionState.reactions) sessionState.reactions = {};
+            sessionState.reactions[`${type}-${index}`] = reaction;
+
+            const result = sessionState.analysisResult;
+            let name = '';
+
+            // Get the item name and build subject ID
+            let subjectId = '';
+            if (type === 'character' && result?.life_characters?.[index]) {
+                name = result.life_characters[index].name_suggestion || result.life_characters[index].who_they_are;
+                subjectId = `char_${index}`;
+            } else if (type === 'place' && result?.meaningful_places?.[index]) {
+                name = result.meaningful_places[index].place_description;
+                subjectId = `place_${index}`;
+            } else if (type === 'idea' && result?.creative_sparks?.[index]) {
+                name = result.creative_sparks[index].idea;
+                subjectId = `idea_${index}`;
+            }
+
+            // Update agentContext and canvas
+            if (reaction === 'love') {
+                agentContext.loved.add(subjectId);
+                if (type === 'character' && !sessionState.canvas.characters.includes(index)) {
+                    sessionState.canvas.characters.push(index);
+                } else if (type === 'place' && !sessionState.canvas.places.includes(index)) {
+                    sessionState.canvas.places.push(index);
+                } else if (type === 'idea' && !sessionState.canvas.ideas.includes(index)) {
+                    sessionState.canvas.ideas.push(index);
+                }
+                addTechFlow('context', 'Loved', `<strong>${name}</strong> → prioritized for creation`);
+
+            } else if (reaction === 'haha') {
+                if (!sessionState.tonePreferences) sessionState.tonePreferences = [];
+                sessionState.tonePreferences.push({ type, index, tone: 'playful' });
+                addTechFlow('context', 'Playful Vibe', `User finds <strong>${name}</strong> fun → suggest playful content`);
+
+            } else if (reaction === 'angry') {
+                agentContext.skipped.add(subjectId);
+                if (type === 'character') {
+                    sessionState.canvas.characters = sessionState.canvas.characters.filter(i => i !== index);
+                } else if (type === 'place') {
+                    sessionState.canvas.places = sessionState.canvas.places.filter(i => i !== index);
+                } else if (type === 'idea') {
+                    sessionState.canvas.ideas = sessionState.canvas.ideas.filter(i => i !== index);
+                }
+                if (!sessionState.skipped) sessionState.skipped = [];
+                sessionState.skipped.push({ type, index });
+                addTechFlow('context', 'Skipped', `<strong>${name}</strong> → won't include in suggestions`);
+            }
+
+            saveSession();
+
+            // Send reaction to agent - let it decide what to do next
+            const reactionEmoji = reaction === 'love' ? '❤️' : (reaction === 'haha' ? '😂' : '😠');
+            agentChat(`User reacted ${reactionEmoji} on ${subjectId}.`);
+        }
+
+        // Render result card (without saving - for restoration)
+        function renderResultCard(device, result, scroll = true) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+            card.innerHTML = `
+                <div class="a2ui-card">
+                    <div class="a2ui-card-header">
+                        <div class="a2ui-card-icon">
+                            <span class="material-icons-outlined">auto_awesome</span>
+                        </div>
+                        <div>
+                            <div class="a2ui-card-title">Your Creative Assets</div>
+                            <div class="a2ui-card-subtitle">Ready to transform</div>
+                        </div>
+                    </div>
+                    <div class="a2ui-card-body">
+                        <div class="a2ui-result-row">
+                            <div class="a2ui-result-icon pets">🐱</div>
+                            <div class="a2ui-result-text">
+                                <div class="a2ui-result-count">${result.categories?.pets || 0} pets</div>
+                                <div class="a2ui-result-label">${result.pet_details || 'Ready to become characters'}</div>
+                            </div>
+                        </div>
+                        <div class="a2ui-result-row">
+                            <div class="a2ui-result-icon people">👨‍👩‍👧</div>
+                            <div class="a2ui-result-text">
+                                <div class="a2ui-result-count">${result.categories?.people || 0} people</div>
+                                <div class="a2ui-result-label">${result.people_details || 'Moments to animate'}</div>
+                            </div>
+                        </div>
+                        <div class="a2ui-result-row">
+                            <div class="a2ui-result-icon places">🌃</div>
+                            <div class="a2ui-result-text">
+                                <div class="a2ui-result-count">${result.categories?.places || 0} places</div>
+                                <div class="a2ui-result-label">${result.places_details || 'Worlds for stories'}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+            if (scroll) container.scrollTop = container.scrollHeight;
+        }
+
+        // Render life characters as horizontal carousel (mobile-friendly)
+        function renderLifeCharactersCard(device, characters, scroll = true) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            const characterChips = characters.map((char, i) => {
+                const emoji = char.type === 'pet' ? '🐱' : (char.type === 'person' ? '👤' : '✨');
+                // Use description for display, not name_suggestion
+                const name = char.who_they_are || char.name_suggestion;
+                // Truncate name for compact display
+                const shortName = name.length > 15 ? name.slice(0, 15) + '…' : name;
+                return `
+                    <div class="a2ui-subject-chip" onclick="toggleChipExpand(this, ${i}, 'character')">
+                        <div class="chip-header">
+                            <span class="chip-emoji">${emoji}</span>
+                            <div class="chip-info">
+                                <div class="chip-name">${shortName}</div>
+                                <div class="chip-count">${char.appearances} photos</div>
+                            </div>
+                        </div>
+                        <div class="chip-detail">${char.what_you_notice}</div>
+                        <button class="chip-action" onclick="event.stopPropagation(); handleAddIngredient('character', ${i})">+ Add to canvas</button>
+                    </div>
+                `;
+            }).join('');
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 8px;">
+                    <div class="a2ui-section-header">
+                        <span class="material-icons-outlined">favorite</span>
+                        The stars of your gallery
+                    </div>
+                    <div class="a2ui-carousel-wrapper">
+                        <div class="a2ui-carousel" onscroll="handleCarouselScroll(this)">
+                            ${characterChips}
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+            if (scroll) container.scrollTop = container.scrollHeight;
+        }
+
+        // Toggle chip expansion
+        function toggleChipExpand(element, index, type) {
+            const wasExpanded = element.classList.contains('expanded');
+            // Collapse all chips first
+            document.querySelectorAll('.a2ui-subject-chip.expanded').forEach(el => {
+                el.classList.remove('expanded');
+            });
+            // Expand this one if it wasn't already expanded
+            if (!wasExpanded) {
+                element.classList.add('expanded');
+                // Scroll carousel to show expanded chip
+                element.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            }
+        }
+
+        // Handle carousel scroll (for scroll hint visibility)
+        function handleCarouselScroll(carousel) {
+            const wrapper = carousel.parentElement;
+            const isAtEnd = carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 10;
+            if (isAtEnd) {
+                wrapper.classList.add('scrolled-end');
+            } else {
+                wrapper.classList.remove('scrolled-end');
+            }
+        }
+
+        // Track ingredients added to canvas
+        if (!sessionState.canvas) {
+            sessionState.canvas = { characters: [], places: [], ideas: [] };
+        }
+
+        // Handle "Add to canvas" - collecting ingredients for creation
+        function handleAddIngredient(type, index) {
+            const result = sessionState.analysisResult;
+            let subject, name;
+
+            if (type === 'character' && result?.life_characters?.[index]) {
+                subject = result.life_characters[index];
+                name = subject.who_they_are || subject.name_suggestion;
+                if (!sessionState.canvas.characters.includes(index)) {
+                    sessionState.canvas.characters.push(index);
+                }
+            } else if (type === 'place' && result?.meaningful_places?.[index]) {
+                subject = result.meaningful_places[index];
+                name = subject.place_description;
+                if (!sessionState.canvas.places.includes(index)) {
+                    sessionState.canvas.places.push(index);
+                }
+            }
+            saveSession();
+
+            // Visual feedback - the chip stays expanded but changes state
+            const totalIngredients = sessionState.canvas.characters.length + sessionState.canvas.places.length;
+
+            // Show a gentle confirmation in chat
+            addChatMessage(activeDevice, 'assistant',
+                `✓ Added "${name}" to your canvas. ${totalIngredients === 1 ? 'Keep exploring, or ' : ''}You have ${totalIngredients} ingredient${totalIngredients > 1 ? 's' : ''} so far.`
+            );
+
+            addTechFlow('agentic', 'Collecting Ingredients', `<strong>${name}</strong> added to creative canvas`);
+        }
+
+        // Handle "Tell me more..." - exploring an idea deeper
+        function handleExploreIdea(index) {
+            const sparks = sessionState.analysisResult?.creative_sparks || [];
+            if (sparks[index]) {
+                const spark = sparks[index];
+
+                addChatMessage(activeDevice, 'user', `Tell me more about: "${spark.idea}"`);
+                addTechFlow('agentic', 'Exploring Ideas', `User curious about: <strong>${spark.idea}</strong>`);
+
+                setTimeout(() => addTypingIndicator(activeDevice), 300);
+
+                setTimeout(() => {
+                    removeTypingIndicator(activeDevice);
+                    // Give a more detailed, imaginative response
+                    addChatMessage(activeDevice, 'assistant',
+                        `I'm imagining this: ${spark.why_this_fits}\n\nThis idea came from ${spark.based_on}. Want to start collecting ingredients for this, or keep exploring other ideas?`
+                    );
+                }, 1500);
+            }
+        }
+
+        // Legacy handler (kept for backwards compatibility)
+        function handleCreateWith(type, index) {
+            handleAddIngredient(type, index);
+        }
+
+        // Render meaningful places as horizontal carousel (mobile-friendly)
+        function renderMeaningfulPlacesCard(device, places, scroll = true) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            const placeChips = places.map((place, i) => {
+                const desc = place.place_description;
+                const shortDesc = desc.length > 15 ? desc.slice(0, 15) + '…' : desc;
+                return `
+                    <div class="a2ui-subject-chip" onclick="toggleChipExpand(this, ${i}, 'place')">
+                        <div class="chip-header">
+                            <span class="chip-emoji">🌍</span>
+                            <div class="chip-info">
+                                <div class="chip-name">${shortDesc}</div>
+                                <div class="chip-count">${place.mood}</div>
+                            </div>
+                        </div>
+                        <div class="chip-detail">${place.why_it_seems_to_matter}</div>
+                        <button class="chip-action" onclick="event.stopPropagation(); handleAddIngredient('place', ${i})">+ Add to canvas</button>
+                    </div>
+                `;
+            }).join('');
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 8px;">
+                    <div class="a2ui-section-header">
+                        <span class="material-icons-outlined">explore</span>
+                        Places that matter
+                    </div>
+                    <div class="a2ui-carousel-wrapper">
+                        <div class="a2ui-carousel" onscroll="handleCarouselScroll(this)">
+                            ${placeChips}
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+            if (scroll) container.scrollTop = container.scrollHeight;
+        }
+
+        // Render creative spark chips as horizontal carousel (mobile-friendly)
+        function renderCreativeSparkChips(device, sparks, fallbackSuggestion, scroll = true) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const chips = document.createElement('div');
+            chips.className = 'chat-msg assistant';
+
+            // If we have detailed sparks, show them as swipeable chips
+            let content;
+            if (sparks && sparks.length > 0) {
+                const sparkChips = sparks.slice(0, 3).map((spark, i) => {
+                    const shortIdea = spark.idea.length > 25 ? spark.idea.slice(0, 25) + '…' : spark.idea;
+                    return `
+                        <div class="a2ui-subject-chip" onclick="toggleChipExpand(this, ${i}, 'spark')" style="background: var(--primary-container);">
+                            <div class="chip-header">
+                                <span class="chip-emoji">💡</span>
+                                <div class="chip-info">
+                                    <div class="chip-name">${shortIdea}</div>
+                                </div>
+                            </div>
+                            <div class="chip-detail">${spark.why_this_fits}</div>
+                            <button class="chip-action" onclick="event.stopPropagation(); handleExploreIdea(${i})">Tell me more...</button>
+                        </div>
+                    `;
+                }).join('');
+
+                content = `
+                    <div class="chat-msg-bubble" style="padding: 8px;">
+                        <div class="a2ui-section-header">
+                            <span class="material-icons-outlined">auto_awesome</span>
+                            What we could make...
+                        </div>
+                        <div class="a2ui-carousel-wrapper">
+                            <div class="a2ui-carousel" onscroll="handleCarouselScroll(this)">
+                                ${sparkChips}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                content = `
+                    <div class="chat-msg-bubble">
+                        What would you like to create?
+                        <div class="a2ui-chips">
+                            <button class="a2ui-chip" onclick="handleSuggestionClick('character')">
+                                <span class="material-icons-outlined" style="font-size: 16px;">pets</span>
+                                Character
+                            </button>
+                            <button class="a2ui-chip" onclick="handleSuggestionClick('world')">
+                                <span class="material-icons-outlined" style="font-size: 16px;">landscape</span>
+                                World
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            chips.innerHTML = content;
+            container.appendChild(chips);
+            if (scroll) container.scrollTop = container.scrollHeight;
+        }
+
+        // Handle creative spark click (now redirects to explore)
+        function handleCreativeSparkClick(index) {
+            handleExploreIdea(index);
+        }
+
+        // Legacy: Render suggestion chips (without saving - for restoration)
+        function renderSuggestionChips(device, suggestion, scroll = true) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const chips = document.createElement('div');
+            chips.className = 'chat-msg assistant';
+            chips.innerHTML = `
+                <div class="chat-msg-bubble">
+                    ${suggestion}
+                    <div class="a2ui-chips">
+                        <button class="a2ui-chip" onclick="handleSuggestionClick('character')">
+                            <span class="material-icons-outlined" style="font-size: 16px;">pets</span>
+                            Create Character
+                        </button>
+                        <button class="a2ui-chip" onclick="handleSuggestionClick('world')">
+                            <span class="material-icons-outlined" style="font-size: 16px;">landscape</span>
+                            Build World
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(chips);
+            if (scroll) container.scrollTop = container.scrollHeight;
+        }
+
+        // Handle suggestion chip click
+        function handleSuggestionClick(type) {
+            addChatMessage(activeDevice, 'user', type === 'character' ? 'Create Character' : 'Build World');
+            addTechFlow('agentic', 'Intent Recognition', `Understood user wants to <strong>${type === 'character' ? 'create a character' : 'build a world'}</strong>`);
+
+            setTimeout(() => {
+                addTypingIndicator(activeDevice);
+                addTechFlow('agentic', 'Pipeline Setup', `Loading <strong>${type === 'character' ? 'character generation' : 'world building'}</strong> workflow automatically`);
+            }, 300);
+
+            setTimeout(() => {
+                removeTypingIndicator(activeDevice);
+                addChatMessage(activeDevice, 'assistant',
+                    type === 'character'
+                        ? 'Great choice! 🐱 Tap the Photos tab and select any pet photo!'
+                        : 'Perfect! 🌃 Tap the Photos tab and select any landscape!'
+                );
+            }, 1500);
+        }
+
+        // =============================================================
+        // Chat Input Handlers
+        // =============================================================
+
+        // Handle Enter key in chat input
+        function handleChatKeypress(event, device) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleChatSend(device);
+            }
+        }
+
+        // Handle chat send button click - AGENTIC: Send to agent brain
+        async function handleChatSend(device) {
+            const input = document.getElementById(`${device}-chat-input`);
+            const text = input.value.trim();
+            if (!text) return;
+
+            // Clear input
+            input.value = '';
+
+            // Add user message
+            addChatMessage(device, 'user', text);
+
+            // Build context-rich message including selected characters
+            let actionMessage = `[User message: "${text}"]`;
+
+            // Include selected character context if any
+            if (selectedCharacters.size > 0) {
+                const charNames = Array.from(selectedCharacters.values()).map(c => c.name);
+                const charIds = Array.from(selectedCharacters.keys());
+                actionMessage = `[User has selected character(s): ${charNames.join(', ')} (ids: ${charIds.join(', ')}). User message: "${text}"]`;
+
+                addTechFlow('context', 'Selected Characters', charNames.join(', '));
+            }
+
+            // Log to capability panel
+            addTechFlow('agentic', 'Processing Message', `User said: "<strong>${text.slice(0, 30)}${text.length > 30 ? '...' : ''}</strong>"`);
+
+            // Send to agent brain - let it decide how to respond
+            // (agentChat handles typing indicator internally)
+            try {
+                await agentChat(actionMessage);
+            } catch (error) {
+                console.error('[Chat] Agent error:', error);
+                addChatMessage(device, 'assistant', `I had trouble understanding that. Could you try again?`);
+            }
+        }
+
+        // =============================================================
+        // Technical Flow Panel (Right Side)
+        // =============================================================
+
+        // Add technical flow item
+        function addTechFlow(type, label, text) {
+            // Save to session history
+            sessionState.techFlowHistory.push({ type, label, text });
+            saveSession();
+
+            // Render it
+            renderTechFlowItem(type, label, text, true);
+        }
+
+        // Render capability insight item (without saving - for restoration)
+        function renderTechFlowItem(type, label, text, scroll = true) {
+            const log = document.getElementById('message-log');
+
+            // Remove placeholder if exists
+            const placeholder = log.querySelector('.message-placeholder');
+            if (placeholder) placeholder.remove();
+
+            // Capability icons and tags
+            const icons = {
+                multimodal: '👁️',
+                context: '📚',
+                agentic: '🤖',
+                output: '✨',
+                status: '📍'
+            };
+
+            const tagLabels = {
+                multimodal: 'Multi-Modal',
+                context: 'Long Context',
+                agentic: 'Agentic',
+                output: 'Native Output',
+                status: 'Status'
+            };
+
+            const item = document.createElement('div');
+            item.className = 'tech-flow-item';
+            item.innerHTML = `
+                <div class="tech-flow-icon ${type}">${icons[type] || '📌'}</div>
+                <div class="tech-flow-content">
+                    <div class="tech-flow-label">
+                        ${label}
+                        <span class="capability-tag ${type}">${tagLabels[type] || type}</span>
+                    </div>
+                    <div class="tech-flow-text">${text}</div>
+                </div>
+            `;
+
+            // Remove old spacer if exists
+            const oldSpacer = log.querySelector('.tech-flow-spacer');
+            if (oldSpacer) oldSpacer.remove();
+
+            log.appendChild(item);
+
+            // Add spacer to keep latest item centered
+            const spacer = document.createElement('div');
+            spacer.className = 'tech-flow-spacer';
+            spacer.style.height = `${log.clientHeight * 0.4}px`; // 40% of container height
+            log.appendChild(spacer);
+
+            // Scroll to show item near center (not at bottom)
+            if (scroll) {
+                const itemTop = item.offsetTop;
+                const containerHeight = log.clientHeight;
+                log.scrollTop = itemTop - (containerHeight * 0.3); // Position 30% from top
+            }
+        }
+
+        // Legacy addMessage function - now redirects to capability insights
+        function addMessage(text, isSystem = false) {
+            addTechFlow('status', 'System', text.replace(/<[^>]*>/g, ''));
+        }
+
+        // =============================================================
+        // Character Creation Skill (Agent-triggered, Mobile Bottom Sheet)
+        // =============================================================
+
+        // State for the make-anime skill
+        const makeAnimeState = {
+            characterIndex: null,
+            device: null,
+            selectedPhotos: [],  // Array of photo indices
+            characterName: '',   // User-provided name
+            characterPersona: '', // User-provided persona (one line)
+            characterPronouns: 'they' // Default to they/them
+        };
+
+        // Pronoun button click handler
+        function selectPronoun(device, value) {
+            const container = document.getElementById(`${device}-pronouns`);
+            container.querySelectorAll('.pronoun-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.value === value);
+            });
+            makeAnimeState.characterPronouns = value;
+        }
+
+        // Initialize pronoun button handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.pronoun-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const device = e.target.closest('.pronoun-selector').id.replace('-pronouns', '');
+                    selectPronoun(device, e.target.dataset.value);
+                });
+            });
+        });
+
+        // Agent skill: Suggest making an anime character - A2UI card with embedded action
+        function suggestMakeAnimeSkill(device, charIndex, message) {
+            const result = sessionState.analysisResult;
+            const char = result?.life_characters?.[charIndex];
+            if (!char || (char.image_indices?.length || 0) < 3) return;
+
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+            card.id = `skill-suggest-${charIndex}`;
+
+            // Use description for display, name_suggestion only for pre-filling name input
+            const charName = char.who_they_are || 'this character';
+
+            // A2UI: Message from agent goes in card
+            const messageHtml = message
+                ? `<div style="font-size: 13px; color: var(--on-surface); margin-bottom: 8px; line-height: 1.4;">${message}</div>`
+                : '';
+
+            // Get best photo for preview
+            const bestPhotoIdx = char.image_indices?.[0];
+            const thumbUrl = (bestPhotoIdx !== undefined && sessionState.photoUrls?.[bestPhotoIdx])
+                ? sessionState.photoUrls[bestPhotoIdx]
+                : null;
+            const thumbHtml = thumbUrl
+                ? `<img src="${thumbUrl}" class="card-thumb" alt="${charName}">`
+                : '';
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 10px 12px;">
+                    ${messageHtml}
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <span style="font-size: 20px;">✨</span>
+                        <div style="font-weight: 600; font-size: 14px;">Turn ${charName} into anime?</div>
+                    </div>
+                    ${thumbHtml}
+                    <div style="font-size: 12px; color: var(--on-surface-variant); line-height: 1.5; margin-bottom: 8px;">
+                        ${char.image_indices.length} reference photos available
+                    </div>
+                    <div class="card-actions">
+                        <button class="action-btn primary" onclick="openBottomSheet('${device}', ${charIndex})">
+                            ✨ Create Character
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Open the bottom sheet for character creation (starts at Step 1: Name + Persona)
+        function openBottomSheet(device, charIndex) {
+            const result = sessionState.analysisResult;
+            const char = result?.life_characters?.[charIndex];
+            if (!char) return;
+
+            // Reset state
+            makeAnimeState.characterIndex = charIndex;
+            makeAnimeState.device = device;
+            makeAnimeState.selectedPhotos = [];
+            makeAnimeState.characterName = '';
+            makeAnimeState.characterPersona = '';
+            makeAnimeState.characterPronouns = 'they'; // Default
+
+            // Pre-fill name from analysis suggestion
+            const suggestedName = char.name_suggestion || '';
+            const nameInput = document.getElementById(`${device}-char-name`);
+            const personaInput = document.getElementById(`${device}-char-persona`);
+            nameInput.value = suggestedName;
+            personaInput.value = '';
+
+            // Reset pronoun selection to default (they/them)
+            selectPronoun(device, 'they');
+
+            // Show step 1, hide step 2
+            document.getElementById(`${device}-step-1`).style.display = 'block';
+            document.getElementById(`${device}-step-2`).style.display = 'none';
+
+            // Enable/disable next button based on name
+            updateNextButtonState(device);
+
+            // Add input listener for name validation
+            nameInput.oninput = () => updateNextButtonState(device);
+
+            // Show bottom sheet
+            document.getElementById(`${device}-bottom-sheet`).classList.add('visible');
+        }
+
+        // Update next button state based on name input
+        function updateNextButtonState(device) {
+            const nameInput = document.getElementById(`${device}-char-name`);
+            const nextBtn = document.getElementById(`${device}-next-btn`);
+            nextBtn.disabled = !nameInput.value.trim();
+        }
+
+        // Go to Step 2: Photo selection
+        function goToStep2(device) {
+            const nameInput = document.getElementById(`${device}-char-name`);
+            const personaInput = document.getElementById(`${device}-char-persona`);
+
+            // Store values
+            makeAnimeState.characterName = nameInput.value.trim();
+            makeAnimeState.characterPersona = personaInput.value.trim();
+
+            // Update step 2 display with character name
+            document.getElementById(`${device}-char-name-display`).textContent = makeAnimeState.characterName;
+
+            // Populate the photo grid
+            const result = sessionState.analysisResult;
+            const char = result?.life_characters?.[makeAnimeState.characterIndex];
+            const grid = document.getElementById(`${device}-ref-grid`);
+            const photoIndices = char?.image_indices || [];
+
+            grid.innerHTML = photoIndices.map(idx => `
+                <div class="ref-photo" onclick="toggleRefPhoto('${device}', this, ${idx})" data-index="${idx}">
+                    <img src="${sessionState.photoUrls[idx]}" alt="Photo ${idx + 1}">
+                </div>
+            `).join('');
+
+            // Reset counter and button
+            document.getElementById(`${device}-count`).textContent = '0';
+            document.getElementById(`${device}-gen-btn`).disabled = true;
+
+            // Show step 2, hide step 1
+            document.getElementById(`${device}-step-1`).style.display = 'none';
+            document.getElementById(`${device}-step-2`).style.display = 'block';
+        }
+
+        // Go back to Step 1
+        function goToStep1(device) {
+            document.getElementById(`${device}-step-1`).style.display = 'block';
+            document.getElementById(`${device}-step-2`).style.display = 'none';
+        }
+
+        // Close the bottom sheet
+        function closeBottomSheet(device) {
+            document.getElementById(`${device}-bottom-sheet`).classList.remove('visible');
+        }
+
+        // Toggle photo selection in bottom sheet
+        function toggleRefPhoto(device, el, idx) {
+            const i = makeAnimeState.selectedPhotos.indexOf(idx);
+
+            if (i > -1) {
+                makeAnimeState.selectedPhotos.splice(i, 1);
+                el.classList.remove('selected');
+            } else if (makeAnimeState.selectedPhotos.length < 3) {
+                makeAnimeState.selectedPhotos.push(idx);
+                el.classList.add('selected');
+            }
+
+            const count = makeAnimeState.selectedPhotos.length;
+            document.getElementById(`${device}-count`).textContent = count;
+            document.getElementById(`${device}-gen-btn`).disabled = count < 1;  // Enable when at least 1 photo selected
+        }
+
+        // Generate the character (called from bottom sheet)
+        async function generateCharacter(device) {
+            const { characterIndex, selectedPhotos, characterName, characterPersona, characterPronouns } = makeAnimeState;
+            const result = sessionState.analysisResult;
+            const char = result?.life_characters?.[characterIndex];
+
+            // Allow 1-3 photos
+            if (!char || selectedPhotos.length < 1 || !characterName) return;
+
+            // Close bottom sheet
+            closeBottomSheet(device);
+
+            // Show loading message with user's chosen name
+            addChatMessage(device, 'assistant', `✨ Creating ${characterName}... This takes about 30 seconds.`);
+
+            // Log capability
+            addTechFlow('output', 'Generating Character',
+                `<strong>${characterName}</strong> (${characterPronouns}/them) with ${selectedPhotos.length} reference${selectedPhotos.length > 1 ? 's' : ''}`);
+            if (characterPersona) {
+                addTechFlow('context', 'Persona', characterPersona);
+            }
+
+            // Get photo paths
+            const photoPaths = selectedPhotos.map(idx => sessionState.photoUrls[idx]);
+
+            try {
+                const response = await fetch('/api/create-character', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_info: char,
+                        selected_photo_paths: photoPaths,
+                        style: 'anime',
+                        name: characterName,
+                        persona: characterPersona,
+                        pronouns: characterPronouns,
+                        session_id: SESSION_ID,
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Generation failed');
+                }
+
+                const data = await response.json();
+                renderGeneratedCharacterCard(device, data);
+
+                addTechFlow('output', 'Character Complete',
+                    `<strong>${data.name}</strong> generated in ${data.generation_time_seconds}s`);
+
+                // Save to workspace for persistent storage
+                let savedChar = null;
+                try {
+                    savedChar = await workspace.saveCharacter(data, {
+                        referencePhotos: photoPaths,
+                        sourceAnalysis: char,
+                        persona: characterPersona,
+                        pronouns: characterPronouns  // Store pronouns
+                    });
+                    if (savedChar) {
+                        addTechFlow('status', 'Saved to Assets',
+                            `<strong>${savedChar.name}</strong> added`);
+                        updateWorkspaceIndicator(true);  // Pulse animation for new character
+
+                        // CRITICAL: Sync workspace to agent context so it can reference saved characters
+                        await syncWorkspaceToContext();
+                    }
+                } catch (wsError) {
+                    console.warn('[Workspace] Failed to save character:', wsError);
+                    // Non-fatal - character was still generated successfully
+                }
+
+                // Record generation in agent context and trigger follow-up
+                if (agentContext) {
+                    agentContext.recordGeneration(`char_${characterIndex}`, data.name);
+                }
+
+                // Show action buttons for next steps
+                // A2UI: Don't call agentChat here - just show buttons and wait for user
+                renderPostCreationActions(device, data.name, savedChar?.id);
+
+            } catch (error) {
+                console.error('Character generation error:', error);
+                addChatMessage(device, 'assistant', `😅 Something went wrong: ${error.message}`);
+            }
+        }
+
+        // Render the generated character card
+        function renderGeneratedCharacterCard(device, data) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            const fullBody = data.generated_images.find(img => img.variant === 'full_body');
+            const portrait = data.generated_images.find(img => img.variant === 'portrait');
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble generated-char-card">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span style="font-size: 24px;">✨</span>
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px;">${data.name}</div>
+                            <div style="font-size: 11px; color: var(--on-surface-variant);">Anime Character</div>
+                        </div>
+                    </div>
+                    <div class="generated-images">
+                        ${fullBody ? `<img src="${fullBody.url}" alt="Full Body" onclick="window.open('${fullBody.url}', '_blank')">` : ''}
+                        ${portrait ? `<img src="${portrait.url}" alt="Portrait" onclick="window.open('${portrait.url}', '_blank')">` : ''}
+                    </div>
+                    <div style="font-size: 11px; color: var(--on-surface-variant); margin-top: 8px;">
+                        Generated in ${data.generation_time_seconds}s • Tap to view full size
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // =============================================================
+        // Creative Production UI Functions
+        // =============================================================
+
+        /**
+         * Sync workspace characters to agent context
+         * Called after character generation and on init
+         */
+        async function syncWorkspaceToContext() {
+            if (!workspace || !agentContext) return;
+            try {
+                const characters = await workspace.getCharacters();
+                agentContext.updateSavedCharacters(characters);
+                console.log(`[Workspace] Synced ${characters.length} characters to agent context`);
+            } catch (error) {
+                console.warn('[Workspace] Failed to sync to context:', error);
+            }
+        }
+
+        /**
+         * Render action buttons after character creation
+         */
+        function renderPostCreationActions(device, characterName, characterId) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 12px;">
+                    <div style="font-size: 14px; margin-bottom: 12px;">
+                        ✨ <strong>${characterName}</strong> is ready! What would you like to create?
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="action-button primary" onclick="startMangaCreation('${characterId}', '${characterName}')">
+                            <span class="material-icons-outlined" style="font-size: 18px;">auto_stories</span>
+                            Create Manga
+                        </button>
+                        <button class="action-button" onclick="continueExploring()">
+                            <span class="material-icons-outlined" style="font-size: 18px;">photo_library</span>
+                            Explore More Photos
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        /**
+         * Start manga creation flow
+         */
+        async function startMangaCreation(characterId, characterName) {
+            await agentChat(`User clicked "Create Manga" for ${characterName}.`);
+        }
+
+        /**
+         * Continue exploring gallery
+         */
+        async function continueExploring() {
+            await agentChat(`User clicked "Explore More Photos".`);
+        }
+
+        /**
+         * Render character reference card when agent looks up a saved character
+         */
+        async function renderCharacterReferenceCard(device, character) {
+            if (!character) return;
+
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            // Get character's full body image URL
+            let imageUrl = '';
+            if (character.generatedImages?.length > 0) {
+                const fullBody = character.generatedImages.find(img => img.variant === 'full_body');
+                if (fullBody) {
+                    imageUrl = await workspace.getImageUrl(fullBody.imageId);
+                }
+            }
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        ${imageUrl ? `<img src="${imageUrl}" alt="${character.name}" style="width: 60px; height: 60px; border-radius: 12px; object-fit: cover;">` : ''}
+                        <div>
+                            <div style="font-weight: 600; font-size: 15px;">🎭 ${character.name}</div>
+                            <div style="font-size: 12px; color: var(--on-surface-variant);">${character.style} character • Ready for adventures!</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        /**
+         * Render interactive story question card
+         * Creative scratchpad style with personalized feel
+         */
+        function renderStoryQuestionCard(device, character, question, options, storyContext) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const characterName = character?.name || 'your character';
+
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            // Store context for the response
+            const contextId = `story-ctx-${Date.now()}`;
+            window[contextId] = { character, storyContext: storyContext || {} };
+
+            const optionsHtml = options.map((opt, i) => `
+                <button class="story-option" data-context-id="${contextId}" data-value="${opt.value}">
+                    <span class="emoji">${i === 0 ? '✨' : '🌟'}</span>
+                    <span>${opt.label}</span>
+                </button>
+            `).join('');
+
+            card.innerHTML = `
+                <div class="story-card">
+                    <div class="story-card-header">
+                        <span class="icon">📝</span>
+                        <span>Story time with ${characterName}</span>
+                    </div>
+                    <div class="story-card-question">${question}</div>
+                    <div class="story-options">
+                        ${optionsHtml}
+                    </div>
+                    <div class="story-custom-row">
+                        <input type="text"
+                            id="story-custom-${contextId}"
+                            class="story-custom-input"
+                            placeholder="Or type your own idea...">
+                        <button class="story-custom-btn" data-context-id="${contextId}">Go</button>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+
+            // Event listeners for option buttons
+            card.querySelectorAll('.story-option').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const value = e.currentTarget.dataset.value;
+
+                    // Disable all interactive elements
+                    card.querySelectorAll('button, input').forEach(el => el.disabled = true);
+                    e.currentTarget.classList.add('selected');
+
+                    // Send response to agent
+                    await agentChat(`User chose: "${value}" for ${characterName}'s story.`);
+                });
+            });
+
+            // Event listener for custom input
+            const customSubmit = card.querySelector('.story-custom-btn');
+            const customInput = card.querySelector(`#story-custom-${contextId}`);
+
+            customSubmit.addEventListener('click', async () => {
+                const value = customInput.value.trim();
+                if (!value) return;
+
+                // Disable all interactive elements
+                card.querySelectorAll('button, input').forEach(el => el.disabled = true);
+
+                // Send response to agent
+                await agentChat(`User's idea for ${characterName}'s story: "${value}"`);
+            });
+
+            customInput.addEventListener('keypress', async (e) => {
+                if (e.key === 'Enter') {
+                    customSubmit.click();
+                }
+            });
+        }
+
+        /**
+         * Render story confirmation card
+         * Beautiful synopsis card with creative styling
+         */
+        function renderStoryConfirmCard(device, character, synopsis, storyBeats, dialogues) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const characterName = character?.name || 'your character';
+
+            // Store story data for generation (internal, not shown to user)
+            const storyId = `story-data-${Date.now()}`;
+            window[storyId] = { character, storyBeats, dialogues };
+
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            card.innerHTML = `
+                <div class="story-synopsis-card">
+                    <div class="story-synopsis-header">
+                        ✨ ${characterName}'s story is ready!
+                    </div>
+                    <div class="story-synopsis-text">
+                        ${synopsis}
+                    </div>
+                    <input type="text"
+                        id="story-refine-${storyId}"
+                        class="story-refine-input"
+                        placeholder="Want to add or tweak anything?">
+                    <div class="story-actions">
+                        <button class="story-btn-primary" data-story-id="${storyId}">
+                            ✨ Let's make it! — Generate your manga
+                        </button>
+                        <button class="story-btn-secondary" data-story-id="${storyId}">
+                            🔄 Try a different direction
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+
+            const refineInput = card.querySelector(`#story-refine-${storyId}`);
+
+            // Generate button
+            card.querySelector('.story-btn-primary').addEventListener('click', async (e) => {
+                const refinement = refineInput.value.trim();
+
+                // Disable all interactive elements
+                card.querySelectorAll('button, input').forEach(el => el.disabled = true);
+                e.currentTarget.textContent = '🎬 Creating...';
+
+                // Tell agent to generate (with manga-specific spinner messages)
+                if (refinement) {
+                    await agentChat(`User approved the story with this note: "${refinement}". Create the manga!`, 'manga');
+                } else {
+                    await agentChat(`User loved the story! Create the manga now.`, 'manga');
+                }
+            });
+
+            // Change button
+            card.querySelector('.story-btn-secondary').addEventListener('click', async () => {
+                // Disable all interactive elements
+                card.querySelectorAll('button, input').forEach(el => el.disabled = true);
+
+                // Ask agent to restart
+                await agentChat(`User wants to try a different direction for ${characterName}'s story.`);
+            });
+
+            // Enter key on refine input
+            refineInput.addEventListener('keypress', async (e) => {
+                if (e.key === 'Enter') {
+                    card.querySelector('.story-btn-primary').click();
+                }
+            });
+        }
+
+        /**
+         * LEGACY: Render story development card with AGENTIC options from Gemini
+         * Kept for backwards compatibility
+         */
+        async function renderStoryDevelopmentCard(device, character, storyType, initialConcept) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const characterName = character?.name || 'your character';
+            const storyTypeLabel = storyType === 'manga' ? 'manga story' : 'story';
+
+            // Show loading state
+            const loadingCard = document.createElement('div');
+            loadingCard.className = 'chat-msg assistant';
+            loadingCard.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 16px;">
+                    <div style="font-size: 15px;">
+                        📖 Thinking of ${storyTypeLabel} ideas for <strong>${characterName}</strong>...
+                    </div>
+                    <div style="margin-top: 8px; color: var(--on-surface-variant); font-size: 13px;">
+                        ✨ Creating personalized options based on their personality...
+                    </div>
+                </div>
+            `;
+            container.appendChild(loadingCard);
+            container.scrollTop = container.scrollHeight;
+
+            // Log behind-the-scene insight
+            addTechFlow('agentic', 'Story Development', `Gemini generating <strong>${storyTypeLabel}</strong> ideas for ${characterName}`);
+            addTechFlow('context', 'Character Context', `Sending personality traits: "${character?.sourceAnalysis?.what_you_notice?.slice(0, 50) || 'general'}..."`);
+
+            try {
+                // Call Gemini API to generate options — THIS IS THE AGENTIC APPROACH
+                // Use persona as fallback for workspace characters without sourceAnalysis
+                const charType = character?.sourceAnalysis?.type || 'pet';
+                const charDescription = character?.sourceAnalysis?.who_they_are || character?.persona || `A charming ${charType} named ${characterName}`;
+                const charTraits = character?.sourceAnalysis?.what_you_notice || character?.persona || 'playful and curious';
+
+                const response = await fetch(`${API_BASE}/api/generate-story-options`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_name: characterName,
+                        character_type: charType,
+                        character_description: charDescription,
+                        character_traits: charTraits,
+                        story_type: storyType
+                    })
+                });
+
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+                const data = await response.json();
+                const storyOptions = [...data.options, data.custom_option];
+
+                // Log success insight
+                addTechFlow('output', 'Options Generated', `${data.options.length} personalized ${storyTypeLabel} ideas ready`);
+
+                // Remove loading card
+                loadingCard.remove();
+
+                // Create the actual card with Gemini-generated options
+                const card = document.createElement('div');
+                card.className = 'chat-msg assistant';
+
+                // Store options for click handler
+                const optionsDataId = `story-options-${Date.now()}`;
+                window[optionsDataId] = { storyOptions, character, storyType, characterName };
+
+                const optionsHtml = storyOptions.map((opt, i) => `
+                    <button class="story-option-btn" data-options-id="${optionsDataId}" data-option-index="${i}">
+                        <span style="font-size: 20px;">${opt.emoji}</span>
+                        <span>${opt.label}</span>
+                    </button>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="chat-msg-bubble" style="padding: 10px;">
+                        <div style="font-size: 12px; margin-bottom: 8px; color: var(--on-surface-variant);">
+                            What kind of ${storyTypeLabel} for <strong>${characterName}</strong>?
+                        </div>
+                        <div class="story-options-container" style="display: flex; flex-direction: column; gap: 6px;">
+                            ${optionsHtml}
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+
+                // Attach event listeners
+                card.querySelectorAll('.story-option-btn').forEach(btn => {
+                    btn.addEventListener('click', handleStoryOptionClick);
+                });
+
+                container.scrollTop = container.scrollHeight;
+
+            } catch (error) {
+                console.error('Failed to generate story options:', error);
+                loadingCard.remove();
+
+                // Show error message
+                addChatMessage(device, 'assistant', `😅 I couldn't think of story ideas right now. Try typing what you'd like to create with ${characterName}!`);
+            }
+        }
+
+        /**
+         * Handle story option click
+         */
+        async function handleStoryOptionClick(event) {
+            const btn = event.currentTarget;
+            const optionsId = btn.dataset.optionsId;
+            const optionIndex = parseInt(btn.dataset.optionIndex);
+
+            const data = window[optionsId];
+            if (!data) {
+                console.error('Story options data not found:', optionsId);
+                return;
+            }
+
+            const { storyOptions, character, storyType, characterName } = data;
+            const selected = storyOptions[optionIndex];
+
+            // Disable all buttons to prevent double-clicks
+            btn.closest('.story-options-container').querySelectorAll('.story-option-btn').forEach(b => {
+                b.disabled = true;
+                b.style.opacity = '0.5';
+            });
+            btn.style.opacity = '1';
+            btn.style.background = 'var(--primary-container)';
+
+            if (!selected.beats && !selected.description) {
+                // Custom option - just prompt user to type (no agent round-trip)
+                addMessage(`Great! Type your story idea for ${characterName} below.`, true);
+                document.getElementById('android-chat-input')?.focus();
+            } else if (storyType === 'manga' && selected.beats) {
+                // Generate manga directly (no agent round-trip needed)
+                // Beats are now objects: {description, dialogue}
+                const beatDescriptions = selected.beats.map(b =>
+                    typeof b === 'string' ? b : b.description
+                );
+                const beatDialogues = selected.beats.map(b =>
+                    typeof b === 'string' ? '' : (b.dialogue || '')
+                );
+
+                addTechFlow('agentic', 'Story Selected', `"${selected.label}" — ${beatDescriptions.length} panels`);
+                await generateAndShowManga(
+                    'android',
+                    character,
+                    beatDescriptions.length,
+                    beatDescriptions,
+                    'manga',
+                    beatDialogues  // Pass dialogues separately
+                );
+            }
+
+            // Clean up stored data
+            delete window[optionsId];
+        }
+
+        /**
+         * Generate a manga directly from a user concept (skips story options)
+         * Calls API to generate story beats from concept, then generates the manga
+         * @param {string} device - Device ID
+         * @param {object} character - Character object
+         * @param {string} characterName - Character name for prompts
+         * @param {string} concept - User's story concept (e.g., "momo trying to steal sushi")
+         * @param {string} style - Visual style
+         */
+        async function generateMangaFromConcept(device, character, characterName, concept, style) {
+            addTechFlow('agentic', 'Direct Concept', `User concept: "${concept}"`);
+            addTypingIndicator(device, 'story');
+
+            try {
+                // Step 1: Generate story beats from the concept using the story options API
+                // Pass the concept as initial_concept so it biases toward that story
+                const charType = character?.sourceAnalysis?.type || 'pet';
+                const charDescription = character?.sourceAnalysis?.who_they_are || character?.persona || `A charming ${charType} named ${characterName}`;
+                const charTraits = character?.sourceAnalysis?.what_you_notice || character?.persona || 'playful and curious';
+
+                const optionsResponse = await fetch(`${API_BASE}/api/generate-story-options`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        character_name: characterName,
+                        character_type: charType,
+                        character_description: charDescription,
+                        character_traits: charTraits,
+                        story_type: 'manga',
+                        initial_concept: concept  // Pass user's concept to bias generation
+                    })
+                });
+
+                removeTypingIndicator(device);
+
+                if (!optionsResponse.ok) {
+                    throw new Error(`Failed to generate story: ${optionsResponse.status}`);
+                }
+
+                const optionsData = await optionsResponse.json();
+
+                // Use the first option's beats (it should be based on the user's concept)
+                if (!optionsData.options || optionsData.options.length === 0) {
+                    throw new Error('No story generated');
+                }
+
+                const selectedOption = optionsData.options[0];
+                const beats = selectedOption.beats || [];
+
+                // Extract story beats and dialogues
+                const storyBeats = beats.map(b => b.description || b);
+                const dialogues = beats.map(b => b.dialogue || '');
+
+                addTechFlow('context', 'Story Generated', `${storyBeats.length} shots from concept`);
+
+                // Step 2: Generate the manga with these beats
+                await generateAndShowManga(device, character, storyBeats.length, storyBeats, style, dialogues);
+
+            } catch (error) {
+                removeTypingIndicator(device);
+                console.error('Manga from concept error:', error);
+                addChatMessage(device, 'assistant', `😅 Couldn't create the story: ${error.message}. Try again?`);
+            }
+        }
+
+        /**
+         * Generate and display a manga
+         * @param {string} device - Device ID
+         * @param {object} character - Character object with name, generatedImages, etc.
+         * @param {number} panelCount - Number of panels
+         * @param {string[]} storyBeats - Visual descriptions for each panel (behind-the-scenes)
+         * @param {string} style - Visual style (manga, webtoon, etc.)
+         * @param {string[]} dialogues - Optional dialogue for each panel (displayed to user)
+         */
+        async function generateAndShowManga(device, characters, panelCount, storyBeats, style, dialogues = []) {
+            const container = document.getElementById(`${device}-chat-messages`);
+
+            // Normalize to array (backwards compatibility)
+            const charArray = Array.isArray(characters) ? characters : [characters];
+            const charNames = charArray.map(c => c.name).join(' & ');
+
+            // Log behind-the-scene insights (story beats go here, not displayed to user)
+            addTechFlow('agentic', 'Storyboard Generation', `${panelCount} shots for ${charNames}`);
+            addTechFlow('multimodal', 'Character References', `${charArray.length} character sheet(s)`);
+            storyBeats.forEach((beat, i) => {
+                addTechFlow('context', `Shot ${i + 1}`, beat.length > 50 ? beat.slice(0, 50) + '...' : beat);
+            });
+
+            // Build character info for API - each character needs name and image URL
+            const characterInfos = charArray.map(character => {
+                let imageUrl = '';
+                if (character.generatedImages?.length > 0) {
+                    const fullBody = character.generatedImages.find(img => img.variant === 'full_body');
+                    if (fullBody) {
+                        imageUrl = fullBody.originalUrl || fullBody.url || `/assets/outputs/characters/${character.id}_full_body.png`;
+                    } else {
+                        imageUrl = character.generatedImages[0].originalUrl || character.generatedImages[0].url;
+                    }
+                }
+                if (!imageUrl && character.characterSheet) {
+                    imageUrl = character.characterSheet;
+                }
+                if (!imageUrl) {
+                    imageUrl = `/assets/outputs/characters/${character.id}_full_body.png`;
+                }
+                return { name: character.name, image_url: imageUrl };
+            });
+
+            console.log('[Manga] Using characters:', characterInfos);
+
+            // Create the manga card container that will be progressively filled
+            const mangaCard = document.createElement('div');
+            mangaCard.className = 'chat-msg assistant';
+            mangaCard.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 12px; max-width: 100%;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">
+                        📖 ${charNames}'s Story
+                    </div>
+                    <div id="manga-panels-${Date.now()}" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+                        <!-- Panels will be added here progressively -->
+                    </div>
+                    <div id="manga-status-${Date.now()}" style="font-size: 12px; color: var(--on-surface-variant); margin-top: 10px; text-align: center;">
+                        🎬 Generating panel 1 of ${panelCount}...
+                    </div>
+                </div>
+            `;
+            container.appendChild(mangaCard);
+            container.scrollTop = container.scrollHeight;
+
+            const panelsContainer = mangaCard.querySelector('[id^="manga-panels-"]');
+            const statusDiv = mangaCard.querySelector('[id^="manga-status-"]');
+
+            try {
+                // Use streaming endpoint with fetch + ReadableStream
+                const response = await fetch(`${API_BASE}/api/create-manga-stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        characters: characterInfos,
+                        panel_count: panelCount,
+                        story_beats: storyBeats,
+                        dialogues: dialogues,
+                        style: style || 'manga',
+                        session_id: SESSION_ID,
+                    })
+                });
+
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+
+                    // Parse SSE events from buffer
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';  // Keep incomplete line in buffer
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const event = JSON.parse(line.slice(6));
+                                handleMangaStreamEvent(event, panelsContainer, statusDiv, charNames);
+                            } catch (e) {
+                                console.warn('[Manga] Failed to parse SSE event:', line);
+                            }
+                        }
+                    }
+                }
+
+                addTechFlow('output', 'Manga Complete', `${panelCount} panels streamed`);
+
+            } catch (error) {
+                console.error('Manga generation error:', error);
+                statusDiv.innerHTML = `❌ Generation failed: ${error.message}`;
+            }
+        }
+
+        /**
+         * Handle a single SSE event from manga streaming
+         */
+        function handleMangaStreamEvent(event, panelsContainer, statusDiv, charName) {
+            switch (event.type) {
+                case 'start':
+                    console.log('[Manga] Stream started:', event);
+                    statusDiv.innerHTML = `🎬 Generating panel 1 of ${event.total_panels}...`;
+                    break;
+
+                case 'progress':
+                    statusDiv.innerHTML = `🎬 Generating panel ${event.panel_index} of ${event.total}...`;
+                    break;
+
+                case 'panel':
+                    // Add panel immediately when received!
+                    const dialogueHtml = event.dialogue
+                        ? `<div style="font-size: 10px; color: var(--on-surface); margin-top: 4px; text-align: center;">
+                            <span style="font-weight: 600; color: var(--primary);">${charName}:</span>
+                            <span style="font-style: italic;">"${event.dialogue}"</span>
+                           </div>`
+                        : '';
+
+                    const panelDiv = document.createElement('div');
+                    panelDiv.style.cssText = 'flex: 1; min-width: 120px; max-width: 160px;';
+                    panelDiv.dataset.storyBeat = event.story_beat || '';
+                    panelDiv.dataset.dialogue = event.dialogue || '';
+                    panelDiv.innerHTML = `
+                        <img src="${event.image_url}" alt="Panel ${event.panel_index}"
+                             style="width: 100%; border-radius: 8px; cursor: pointer;"
+                             onclick="window.open('${event.image_url}', '_blank')">
+                        ${dialogueHtml}
+                    `;
+                    panelsContainer.appendChild(panelDiv);
+
+                    // Update status
+                    if (event.panel_index < event.total) {
+                        statusDiv.innerHTML = `✓ Panel ${event.panel_index} done • Generating ${event.panel_index + 1}...`;
+                    }
+
+                    // Scroll to show new panel
+                    panelsContainer.parentElement.parentElement.parentElement.scrollTop =
+                        panelsContainer.parentElement.parentElement.parentElement.scrollHeight;
+                    break;
+
+                case 'panel_error':
+                    console.warn('[Manga] Panel error:', event);
+                    // Show placeholder for failed panel
+                    const errorDiv = document.createElement('div');
+                    errorDiv.style.cssText = 'flex: 1; min-width: 120px; max-width: 160px; background: #f5f5f5; border-radius: 8px; padding: 20px; text-align: center;';
+                    errorDiv.innerHTML = `<div style="font-size: 24px;">⚠️</div><div style="font-size: 10px;">Panel ${event.panel_index} failed</div>`;
+                    panelsContainer.appendChild(errorDiv);
+                    break;
+
+                case 'complete':
+                    // Store manga ID for animation
+                    const mangaId = event.manga_id || `manga_${Date.now()}`;
+                    statusDiv.dataset.mangaId = mangaId;
+
+                    statusDiv.innerHTML = `
+                        <div style="margin-bottom: 8px;">✓ Complete • ${event.total_panels} panels in ${event.generation_time}s</div>
+                        <button onclick="animateStory('${mangaId}', this.closest('.chat-msg-bubble'))"
+                                style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white;
+                                       border: none; padding: 8px 16px; border-radius: 20px;
+                                       font-size: 12px; font-weight: 600; cursor: pointer;
+                                       display: inline-flex; align-items: center; gap: 6px;
+                                       box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);">
+                            <span>🎬</span> Animate Story
+                        </button>
+                    `;
+                    addTechFlow('output', 'Manga Complete', `${event.total_panels} panels in ${event.generation_time}s`);
+                    break;
+
+                case 'error':
+                    statusDiv.innerHTML = `❌ ${event.message}`;
+                    break;
+            }
+        }
+
+        /**
+         * Animate a manga story into a video
+         * @param {string} mangaId - The manga ID
+         * @param {HTMLElement} cardBubble - The card bubble element containing panels
+         */
+        async function animateStory(mangaId, cardBubble) {
+            console.log('[Animate] Starting animation for manga:', mangaId);
+
+            // Collect panel data from the UI
+            const panelsContainer = cardBubble.querySelector('[id^="manga-panels-"]');
+            const statusDiv = cardBubble.querySelector('[id^="manga-status-"]');
+
+            if (!panelsContainer) {
+                console.error('[Animate] No panels container found');
+                return;
+            }
+
+            // Extract panel images, story beats, and dialogues
+            const panelDivs = panelsContainer.querySelectorAll('div[data-story-beat]');
+            const panels = [];
+            panelDivs.forEach((div, i) => {
+                const img = div.querySelector('img');
+                if (img) {
+                    panels.push({
+                        index: i + 1,
+                        story_beat: div.dataset.storyBeat || `Panel ${i + 1}`,
+                        dialogue: div.dataset.dialogue || '',
+                        image_url: img.src.replace(window.location.origin, ''),
+                    });
+                }
+            });
+
+            if (panels.length === 0) {
+                console.error('[Animate] No panels found');
+                return;
+            }
+
+            // Get character info from workspace
+            const characters = [];
+            const characterSheets = {};  // NEW: For Veo reference images
+            const allChars = await workspace.getCharacters();
+            for (const char of allChars) {
+                let imageUrl = char.characterSheet || '';
+                let fullBodyUrl = '';
+                if (char.generatedImages?.length > 0) {
+                    const fullBody = char.generatedImages.find(img => img.variant === 'full_body');
+                    fullBodyUrl = fullBody ? (fullBody.originalUrl || fullBody.url) : '';
+                    imageUrl = fullBodyUrl || char.generatedImages[0].url;
+                }
+                characters.push({
+                    name: char.name,
+                    image_url: imageUrl,
+                });
+                // Add full_body reference for Veo multi-reference
+                if (fullBodyUrl) {
+                    characterSheets[char.name] = fullBodyUrl;
+                    console.log(`[Animate] Character sheet for ${char.name}:`, fullBodyUrl);
+                }
+            }
+
+            // Update status to show animation is starting
+            statusDiv.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                    <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #6366f1; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    <span>🎬 Starting animation...</span>
+                </div>
+            `;
+
+            addTechFlow('agentic', 'Video Pipeline', `Animating ${panels.length} panels`);
+
+            try {
+                console.log('[Animate] Using native audio with character sheets:', characterSheets);
+                const response = await fetch(`${API_BASE}/api/animate-story-stream`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        manga_id: mangaId,
+                        panels: panels,
+                        characters: characters,
+                        character_sheets: characterSheets,
+                        session_id: SESSION_ID,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const event = JSON.parse(line.slice(6));
+                                handleAnimateStreamEvent(event, statusDiv, cardBubble);
+                            } catch (e) {
+                                console.warn('[Animate] Failed to parse event:', line);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('[Animate] Error:', error);
+                statusDiv.innerHTML = `❌ Animation failed: ${error.message}`;
+            }
+        }
+
+        /**
+         * Handle animation stream events
+         */
+        async function handleAnimateStreamEvent(event, statusDiv, cardBubble) {
+            switch (event.type) {
+                case 'start':
+                    console.log('[Animate] Started:', event);
+                    addTechFlow('multimodal', 'Animation Start', `${event.panel_count} panels • ${event.mode || 'video'}`);
+                    break;
+
+                case 'voice_setup':
+                    console.log('[Animate] Voice mapping:', event.voice_mapping);
+                    const voices = Object.entries(event.voice_mapping || {})
+                        .map(([name, voice]) => `${name}→${voice}`)
+                        .join(', ');
+                    addTechFlow('agentic', 'Voice Selection', voices || 'Default voices');
+                    statusDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #6366f1; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span>Setting up voices...</span>
+                        </div>
+                    `;
+                    break;
+
+                case 'lyrics_progress':
+                    statusDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #ec4899; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span>${event.message}</span>
+                        </div>
+                    `;
+                    if (event.tags) {
+                        addTechFlow('agentic', 'Lyrics Generated', `${event.tags.substring(0, 40)}...`);
+                    }
+                    break;
+
+                case 'tts_progress':
+                    statusDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #10b981; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span>${event.message}</span>
+                        </div>
+                    `;
+                    break;
+
+                case 'video_progress':
+                    statusDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #f59e0b; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span>${event.message}</span>
+                        </div>
+                    `;
+                    if (event.panel_index) {
+                        addTechFlow('multimodal', `Veo Clip ${event.panel_index}`, 'Generating...');
+                    }
+                    break;
+
+                case 'music_progress':
+                    statusDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #8b5cf6; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span>${event.message}</span>
+                        </div>
+                    `;
+                    addTechFlow('multimodal', 'Music Generation', event.message);
+                    break;
+
+                case 'compose':
+                    statusDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #8b5cf6; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span>${event.message}</span>
+                        </div>
+                    `;
+                    break;
+
+                case 'caption_progress':
+                    statusDiv.innerHTML = `
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+                            <div class="spinner" style="width: 16px; height: 16px; border: 2px solid #06b6d4; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span>${event.message}</span>
+                        </div>
+                    `;
+                    addTechFlow('multimodal', 'Remotion Captions', 'Rendering...');
+                    break;
+
+                case 'complete':
+                    console.log('[Animate] Complete:', event);
+                    const details = [`${event.total_duration}s`, `${event.clip_count} clips`];
+                    if (event.has_music) details.push('music');
+                    if (event.has_lyrics) details.push('lyrics');
+                    if (event.verified) details.push('verified');
+                    addTechFlow('output', 'Video Complete', details.join(' | '));
+
+                    // Save video to workspace
+                    try {
+                        await workspace.saveVideo({
+                            id: event.story_id,
+                            title: `Story ${event.story_id}`,
+                            video_url: event.final_video_path,
+                            duration: event.total_duration,
+                            clip_count: event.clip_count,
+                            has_music: event.has_music || false,
+                            has_lyrics: event.has_lyrics || false,
+                            character_ids: Array.from(selectedCharacters.keys()),
+                            manga_id: statusDiv.dataset?.mangaId,
+                        });
+                        updateWorkspaceIndicator(true);  // Pulse animation
+                        addTechFlow('status', 'Saved to Assets', 'Video added');
+                    } catch (e) {
+                        console.warn('[Animate] Failed to save video:', e);
+                    }
+
+                    // Show video result with play button and status badges
+                    const badges = [];
+                    if (event.has_music) badges.push('music');
+                    if (event.has_lyrics) badges.push('lyrics');
+                    if (event.verified) badges.push('verified');
+                    const badgeHtml = badges.length
+                        ? `<div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 6px;">${badges.map(b => `<span style="font-size: 9px; padding: 2px 6px; background: rgba(99,102,241,0.1); border-radius: 8px; color: #6366f1;">${b}</span>`).join('')}</div>`
+                        : '';
+
+                    statusDiv.innerHTML = `
+                        ${badgeHtml}
+                        <div style="margin-bottom: 8px;">Video ready | ${event.total_duration}s | ${event.clip_count} clips</div>
+                        <a href="${event.final_video_path}" target="_blank"
+                           style="background: linear-gradient(135deg, #10b981, #059669); color: white;
+                                  text-decoration: none; padding: 8px 16px; border-radius: 20px;
+                                  font-size: 12px; font-weight: 600; cursor: pointer;
+                                  display: inline-flex; align-items: center; gap: 6px;
+                                  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);">
+                            Watch Video
+                        </a>
+                    `;
+                    break;
+
+                case 'error':
+                    console.error('[Animate] Error:', event.message);
+                    statusDiv.innerHTML = `Error: ${event.message}`;
+                    break;
+            }
+        }
+
+        /**
+         * Render manga panels in chat
+         * @param {string} device - Device ID
+         * @param {object} mangaData - API response with panels
+         * @param {string[]} dialogues - Optional dialogue for each panel
+         */
+        function renderMangaPanels(device, mangaData, dialogues = []) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            const charName = mangaData.character_name;
+
+            const panelsHtml = mangaData.panels.map((panel, i) => {
+                // Use dialogue if provided, otherwise show nothing (not the story beat)
+                const dialogue = dialogues[i] || panel.dialogue || '';
+                // Format as "Character: dialogue" if dialogue exists
+                const dialogueHtml = dialogue
+                    ? `<div style="font-size: 10px; color: var(--on-surface); margin-top: 4px; text-align: center;">
+                        <span style="font-weight: 600; color: var(--primary);">${charName}:</span>
+                        <span style="font-style: italic;">"${dialogue}"</span>
+                       </div>`
+                    : '';
+
+                return `
+                    <div style="flex: 1; min-width: 120px; max-width: 160px;">
+                        <img src="${panel.image_url}" alt="Panel ${panel.index}" style="width: 100%; border-radius: 8px; cursor: pointer;" onclick="window.open('${panel.image_url}', '_blank')">
+                        ${dialogueHtml}
+                    </div>
+                `;
+            }).join('');
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 12px; max-width: 100%;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">
+                        📖 ${charName}'s Story
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+                        ${panelsHtml}
+                    </div>
+                    <div style="font-size: 10px; color: var(--on-surface-variant); margin-top: 10px; text-align: center;">
+                        Tap panels to enlarge • ${mangaData.generation_time_seconds}s
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // =============================================================
+        // Workspace View Functions
+        // =============================================================
+
+        /**
+         * Update the workspace badge indicator in the nav
+         * @param {boolean} pulse - Whether to trigger pulse animation (for new additions)
+         */
+        async function updateWorkspaceIndicator(pulse = false) {
+            try {
+                const stats = await workspace.getStats();
+                const badge = document.getElementById('android-workspace-badge');
+                const totalCount = (stats.characterCount || 0) + (stats.videoCount || 0);
+
+                if (badge) {
+                    if (totalCount > 0) {
+                        badge.textContent = totalCount;
+                        badge.style.display = 'flex';
+
+                        // Pulse animation for new additions
+                        if (pulse) {
+                            badge.classList.remove('pulse');
+                            // Force reflow to restart animation
+                            void badge.offsetWidth;
+                            badge.classList.add('pulse');
+                        }
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.warn('[Workspace] Failed to update indicator:', error);
+            }
+        }
+
+        // Track current asset tab
+        let currentAssetTab = 'characters';
+
+        /**
+         * Switch between Characters and Videos tabs
+         */
+        function switchAssetTab(tab) {
+            currentAssetTab = tab;
+
+            // Update tab buttons
+            document.querySelectorAll('.asset-tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+
+            // Re-render the workspace view
+            renderWorkspaceView('android');
+        }
+
+        /**
+         * Render the workspace view with all accumulated assets
+         */
+        async function renderWorkspaceView(device) {
+            const container = document.getElementById(`${device}-workspace-content`);
+            if (!container) return;
+
+            try {
+                if (currentAssetTab === 'characters') {
+                    await renderCharactersTab(container);
+                } else {
+                    await renderVideosTab(container);
+                }
+            } catch (error) {
+                console.error('[Workspace] Failed to render view:', error);
+                container.innerHTML = `
+                    <div class="workspace-empty">
+                        <span class="material-icons-outlined" style="font-size: 48px; color: #EA4335;">error</span>
+                        <p>Couldn't load your creations</p>
+                        <p style="font-size: 11px; color: #5f6368;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        /**
+         * Render the Characters tab content
+         */
+        async function renderCharactersTab(container) {
+            const characters = await workspace.getCharacters();
+
+            if (characters.length === 0) {
+                container.innerHTML = `
+                    <div class="workspace-empty">
+                        <span class="material-icons-outlined" style="font-size: 48px; color: #dadce0;">person</span>
+                        <p>No characters yet</p>
+                        <p style="font-size: 11px; color: #5f6368;">Create a character to get started!</p>
+                        <button class="workspace-action-btn primary" onclick="switchView('android', 'create')" style="margin-top: 12px;">
+                            <span class="material-icons-outlined" style="font-size: 14px;">auto_awesome</span>
+                            Start Creating
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render with section header
+            container.innerHTML = `
+                <div class="workspace-section">
+                    <span class="material-icons-outlined section-icon">person</span>
+                    <span class="section-title">Characters</span>
+                    <span class="section-count">${characters.length}</span>
+                </div>
+            `;
+
+            // Render character cards
+            for (const char of characters) {
+                const card = await renderWorkspaceCharacterCard(char);
+                container.appendChild(card);
+            }
+        }
+
+        /**
+         * Render the Videos tab content
+         */
+        async function renderVideosTab(container) {
+            const videos = await workspace.getVideos();
+
+            if (videos.length === 0) {
+                container.innerHTML = `
+                    <div class="workspace-empty">
+                        <span class="material-icons-outlined" style="font-size: 48px; color: #dadce0;">movie</span>
+                        <p>No videos yet</p>
+                        <p style="font-size: 11px; color: #5f6368;">Create a manga and animate it to see videos here!</p>
+                        <button class="workspace-action-btn primary" onclick="switchView('android', 'create')" style="margin-top: 12px;">
+                            <span class="material-icons-outlined" style="font-size: 14px;">auto_awesome</span>
+                            Start Creating
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render with section header
+            container.innerHTML = `
+                <div class="workspace-section">
+                    <span class="material-icons-outlined section-icon">movie</span>
+                    <span class="section-title">Videos</span>
+                    <span class="section-count">${videos.length}</span>
+                </div>
+            `;
+
+            // Render video cards
+            for (const video of videos) {
+                const card = renderWorkspaceVideoCard(video);
+                container.appendChild(card);
+            }
+        }
+
+        /**
+         * Render a video card for the workspace
+         */
+        function renderWorkspaceVideoCard(video) {
+            const card = document.createElement('div');
+            card.className = 'workspace-video-card';
+            card.dataset.videoId = video.id;
+
+            const duration = video.duration ? `${video.duration.toFixed(1)}s` : 'Unknown';
+            const created = new Date(video.createdAt).toLocaleDateString();
+
+            card.innerHTML = `
+                <div class="video-card-preview" onclick="playWorkspaceVideo('${video.videoUrl}')">
+                    <span class="material-icons-outlined video-play-icon">play_circle</span>
+                    <div class="video-duration-badge">${duration}</div>
+                </div>
+                <div class="video-card-info">
+                    <div class="video-card-title">${video.title}</div>
+                    <div class="video-card-meta">${video.clipCount || 0} clips &bull; ${created}</div>
+                </div>
+                <div class="video-card-actions">
+                    <button class="video-card-btn" onclick="playWorkspaceVideo('${video.videoUrl}')" title="Play">
+                        <span class="material-icons-outlined">play_arrow</span>
+                    </button>
+                    <button class="video-card-btn" onclick="deleteWorkspaceVideo('${video.id}')" title="Delete">
+                        <span class="material-icons-outlined">delete</span>
+                    </button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        /**
+         * Play a video from the workspace
+         */
+        function playWorkspaceVideo(videoUrl) {
+            window.open(videoUrl, '_blank');
+        }
+
+        /**
+         * Delete a video from the workspace
+         */
+        async function deleteWorkspaceVideo(videoId) {
+            if (!confirm('Delete this video?')) return;
+
+            try {
+                await workspace.deleteVideo(videoId);
+
+                // Remove the card from DOM
+                const card = document.querySelector(`[data-video-id="${videoId}"]`);
+                if (card) {
+                    card.style.animation = 'fadeSlideIn 0.2s ease reverse';
+                    setTimeout(() => {
+                        card.remove();
+                        // Check if videos section is now empty
+                        renderWorkspaceView('android');
+                    }, 200);
+                }
+
+                updateWorkspaceIndicator();
+            } catch (error) {
+                console.error('[Workspace] Failed to delete video:', error);
+                alert('Failed to remove video: ' + error.message);
+            }
+        }
+
+        /**
+         * Render a single character card for the workspace (compact)
+         */
+        async function renderWorkspaceCharacterCard(char) {
+            const card = document.createElement('div');
+            card.className = 'workspace-character-card';
+            card.dataset.characterId = char.id;
+
+            // Check if already selected and apply class
+            if (selectedCharacters.has(char.id)) {
+                card.classList.add('selected');
+            }
+
+            // Get image URL from IndexedDB
+            const fullBodyImg = char.generatedImages.find(img => img.variant === 'full_body');
+            let imageUrl = null;
+
+            try {
+                if (fullBodyImg) {
+                    imageUrl = await workspace.getImageUrl(fullBodyImg.imageId);
+                    if (!imageUrl) imageUrl = fullBodyImg.originalUrl;
+                }
+            } catch (e) {
+                if (fullBodyImg) imageUrl = fullBodyImg.originalUrl;
+            }
+
+            const persona = char.persona ? `<div class="char-persona">${char.persona}</div>` : '';
+
+            // Make whole card clickable for selection (single click anywhere)
+            card.onclick = (e) => {
+                // Don't trigger if clicking delete button
+                if (e.target.closest('.char-delete')) return;
+                selectCharacterForCreate(char.id, char.name, imageUrl || '');
+            };
+
+            // Double-click to open image fullscreen
+            card.ondblclick = (e) => {
+                if (imageUrl) {
+                    window.open(imageUrl, '_blank');
+                }
+            };
+
+            card.innerHTML = `
+                <div class="char-image-container">
+                    ${imageUrl ? `<img src="${imageUrl}" alt="${char.name}" data-char-img="${imageUrl}">` : '<div class="no-image">No image</div>'}
+                </div>
+                <div class="char-info">
+                    <div class="char-name">${char.name}</div>
+                    ${persona}
+                </div>
+                <div class="char-selected-badge">
+                    <span class="material-icons-outlined">check</span>
+                </div>
+                <button class="char-delete" onclick="event.stopPropagation(); deleteWorkspaceCharacter('${char.id}')" title="Delete">
+                    <span class="material-icons-outlined">close</span>
+                </button>
+            `;
+
+            return card;
+        }
+
+        // Track selected characters for Create tab (with localStorage persistence)
+        let selectedCharacters = new Map(); // id -> { name, imageUrl }
+
+        // Load persisted selections on startup
+        function loadSelectedCharacters() {
+            try {
+                const saved = localStorage.getItem(`sel_chars_${SESSION_ID}`);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    selectedCharacters = new Map(parsed);
+                    // Update UI
+                    renderSelectedCharPills('android');
+                    updateCreateTabBadge();
+                }
+            } catch (e) {
+                console.warn('Failed to load selected characters:', e);
+            }
+        }
+
+        // Save selections to localStorage
+        function saveSelectedCharacters() {
+            try {
+                const arr = Array.from(selectedCharacters.entries());
+                localStorage.setItem(`sel_chars_${SESSION_ID}`, JSON.stringify(arr));
+            } catch (e) {
+                console.warn('Failed to save selected characters:', e);
+            }
+        }
+
+        /**
+         * Select a character from Assets to use in Create tab
+         * Shows feedback without leaving Assets tab for easy multi-select
+         * @param {string} charId - Character ID
+         * @param {string} charName - Character name
+         * @param {string} imageUrl - Character image URL
+         */
+        function selectCharacterForCreate(charId, charName, imageUrl) {
+            const card = document.querySelector(`[data-character-id="${charId}"]`);
+
+            // Toggle selection
+            if (selectedCharacters.has(charId)) {
+                // Deselect
+                selectedCharacters.delete(charId);
+                card?.classList.remove('selected');
+            } else {
+                // Select - add to selected characters
+                selectedCharacters.set(charId, { name: charName, imageUrl });
+                card?.classList.add('selected');
+
+                // Show toast feedback on the card
+                if (card) {
+                    const toast = document.createElement('div');
+                    toast.className = 'char-added-toast';
+                    toast.innerHTML = `
+                        <span class="material-icons-outlined">check</span>
+                        Added to Create
+                    `;
+                    card.appendChild(toast);
+                    setTimeout(() => toast.remove(), 1500);
+                }
+            }
+
+            // Update the pills in Create tab (background update)
+            renderSelectedCharPills('android');
+
+            // Update Create tab badge to show selection count
+            updateCreateTabBadge();
+
+            // Persist to localStorage
+            saveSelectedCharacters();
+        }
+
+        /**
+         * Update the Create tab badge to show selected count
+         */
+        function updateCreateTabBadge() {
+            const count = selectedCharacters.size;
+            const createBtn = document.querySelector('.nav-item.create-btn');
+            if (!createBtn) return;
+
+            // Remove existing badge if any
+            const existingBadge = createBtn.querySelector('.create-badge');
+            if (existingBadge) existingBadge.remove();
+
+            if (count > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'create-badge';
+                badge.textContent = count;
+                badge.style.cssText = `
+                    position: absolute;
+                    top: 2px;
+                    right: 8px;
+                    background: #9575cd;
+                    color: white;
+                    font-size: 9px;
+                    font-weight: 600;
+                    min-width: 14px;
+                    height: 14px;
+                    border-radius: 7px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                createBtn.style.position = 'relative';
+                createBtn.appendChild(badge);
+            }
+        }
+
+        /**
+         * Legacy: Switch to Create tab after selection (kept for backwards compat)
+         */
+        function goToCreateWithCharacter(charId, charName, imageUrl) {
+            if (!selectedCharacters.has(charId)) {
+                selectedCharacters.set(charId, { name: charName, imageUrl });
+                renderSelectedCharPills('android');
+            }
+            switchView('android', 'create');
+
+            // Focus the input
+            setTimeout(() => {
+                const input = document.getElementById('android-chat-input');
+                if (input) {
+                    input.focus();
+                    input.placeholder = `Create something with ${charName}...`;
+                }
+            }, 100);
+
+            addTechFlow('status', 'Character Selected', `${charName} ready for creation`);
+        }
+
+        /**
+         * Remove a character from selection
+         * @param {string} charId - Character ID to remove
+         */
+        function removeSelectedChar(charId) {
+            selectedCharacters.delete(charId);
+            renderSelectedCharPills('android');
+
+            // Update the card state on Assets page if visible
+            const card = document.querySelector(`[data-character-id="${charId}"]`);
+            if (card) {
+                card.classList.remove('selected');
+            }
+
+            // Update Create tab badge
+            updateCreateTabBadge();
+
+            // Persist to localStorage
+            saveSelectedCharacters();
+
+            // Reset placeholder if no characters selected
+            if (selectedCharacters.size === 0) {
+                const input = document.getElementById('android-chat-input');
+                if (input) input.placeholder = 'Ask me anything...';
+            }
+        }
+
+        /**
+         * Render selected character pills in the Create tab input area
+         * @param {string} device - Device ID
+         */
+        function renderSelectedCharPills(device) {
+            const container = document.getElementById(`${device}-selected-chars`);
+            if (!container) return;
+
+            if (selectedCharacters.size === 0) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let html = '';
+            for (const [charId, char] of selectedCharacters) {
+                html += `
+                    <div class="char-pill" data-char-id="${charId}">
+                        ${char.imageUrl ? `<img src="${char.imageUrl}" alt="${char.name}">` : ''}
+                        <span>${char.name}</span>
+                        <button class="remove-pill" onclick="removeSelectedChar('${charId}')" title="Remove">×</button>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        /**
+         * Get selected character names for prompts
+         * @returns {string[]} Array of selected character names
+         */
+        function getSelectedCharacterNames() {
+            return Array.from(selectedCharacters.values()).map(c => c.name);
+        }
+
+        /**
+         * Clear all assets from workspace
+         */
+        async function clearAllAssets() {
+            const characters = await workspace.getCharacters();
+            const videos = await workspace.getVideos();
+            const totalCount = characters.length + videos.length;
+
+            if (totalCount === 0) {
+                return;
+            }
+
+            const items = [];
+            if (characters.length > 0) items.push(`${characters.length} character${characters.length > 1 ? 's' : ''}`);
+            if (videos.length > 0) items.push(`${videos.length} video${videos.length > 1 ? 's' : ''}`);
+
+            if (!confirm(`Delete ${items.join(' and ')}? This cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                await workspace.clear();
+                updateWorkspaceIndicator();
+                renderWorkspaceView('android');
+                addTechFlow('status', 'Assets Cleared', 'All assets removed');
+            } catch (e) {
+                console.error('Failed to clear assets:', e);
+            }
+        }
+
+        /**
+         * Delete a character from the workspace
+         */
+        async function deleteWorkspaceCharacter(characterId) {
+            if (!confirm('Delete this character?')) return;
+
+            try {
+                await workspace.deleteCharacter(characterId);
+
+                // Remove the card from DOM
+                const card = document.querySelector(`[data-character-id="${characterId}"]`);
+                if (card) {
+                    card.style.animation = 'fadeSlideIn 0.2s ease reverse';
+                    setTimeout(() => {
+                        card.remove();
+                        // Check if workspace is now empty
+                        const container = document.getElementById('android-workspace-content');
+                        if (container && container.children.length === 0) {
+                            renderWorkspaceView('android');
+                        }
+                    }, 200);
+                }
+
+                updateWorkspaceIndicator();
+            } catch (error) {
+                console.error('[Workspace] Failed to delete character:', error);
+                alert('Failed to remove character: ' + error.message);
+            }
+        }
+
+        /**
+         * Use a workspace character in video generation (placeholder for future)
+         */
+        function useCharacterInVideo(characterId) {
+            // TODO: Implement video generation flow
+            addTechFlow('status', 'Coming Soon',
+                `Video generation with your saved characters is coming soon!`);
+            switchView('android', 'create');
+            addChatMessage('android', 'assistant',
+                `🎬 Video generation is coming soon! Your character is saved in Assets.`);
+        }
+    </script>
+</body>
+
+</html>

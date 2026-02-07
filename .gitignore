@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Python
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Build & Test outputs
+test-reports/
+logs/
+dist/
+build/
+*.egg-info/
+
+# Assets (personal photos, not for version control)
+assets/pets/*
+assets/people/*
+assets/worlds/*
+assets/outputs/*
+!assets/README.md
+!assets/*/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Media (large files - prefer webp over png)
+*.mp4
+*.mp3
+*.wav
+*.jpg
+*.jpeg
+# Note: .webp and .png are allowed for UI assets
+
+# Test scripts (local debugging only)
+test_veo_*.py

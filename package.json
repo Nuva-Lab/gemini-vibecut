@@ -1,0 +1,36 @@
+{
+  "name": "gemini-vibecut",
+  "version": "0.1.0",
+  "description": "Turn your photos into anime characters, manga, and animated videos — powered by Gemini 3",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "dev": "python ui/api_server.py",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:integration": "USE_REAL_API=true vitest run",
+    "test:report": "vitest run && node agent/__tests__/helpers/generateReport.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropics/gemini-vibecut"
+  },
+  "keywords": [
+    "gemini-3",
+    "ai",
+    "creative",
+    "multimodal",
+    "anime",
+    "manga",
+    "video-generation"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@vitest/ui": "^2.0.0",
+    "dotenv": "^17.2.3",
+    "serve": "^14.0.0",
+    "vitest": "^2.0.0",
+    "wrangler": "^3.0.0"
+  }
+}

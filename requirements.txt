@@ -1,0 +1,37 @@
+# Gemini VibeCut Dependencies
+
+# Google AI
+google-genai>=1.0.0
+google-generativeai>=0.8.0
+
+# Environment
+python-dotenv>=1.0.0
+
+# Data models
+pydantic>=2.0.0
+
+# Image processing
+Pillow>=10.0.0
+
+# API Server
+fastapi>=0.109.0
+uvicorn>=0.27.0
+
+# Video/Audio composition
+ffmpeg-python>=0.2.0
+
+# Async support
+aiohttp>=3.9.0
+aiofiles>=23.0.0
+
+# Utilities
+tenacity>=8.0.0
+pyyaml>=6.0.0
+
+# Music generation
+elevenlabs>=2.34.0
+websockets>=13.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
