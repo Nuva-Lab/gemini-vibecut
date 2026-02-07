@@ -11,12 +11,13 @@ Run with: uvicorn api_server:app --reload --port 8000
 import asyncio
 import json
 import logging
+import re
 import time
 import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
@@ -134,9 +135,16 @@ def get_session_output_dir(session_id: Optional[str] = None) -> Path:
 # Request/Response Models
 # =============================================================================
 
+class MediaItem(BaseModel):
+    """A single media item (photo or video) in the gallery."""
+    path: str
+    type: str = "image"  # "image" or "video"
+
+
 class GalleryAnalysisRequest(BaseModel):
-    """Request to analyze gallery photos."""
-    photos: list[str]  # List of photo paths/URLs
+    """Request to analyze gallery media (photos and videos)."""
+    photos: list[str] = []  # Legacy: image paths only
+    media: list[MediaItem] = []  # New: mixed media with type info
     base_path: Optional[str] = None
 
 
@@ -337,112 +345,234 @@ class GenerateStoryOptionsResponse(BaseModel):
 # =============================================================================
 
 GALLERY_ANALYSIS_PROMPT = """
-You are about to look through someone's personal photo gallery. These aren't just images—they're windows into someone's life, their loves, their memories.
+You are about to look through someone's personal media gallery — a mix of photos AND videos. These aren't just files — they're windows into someone's life, their loves, their memories.
 
-Every photo gallery tells a unique story. Your job is to SEE that story and respond with warmth.
+Every gallery tells a unique story. Your job is to SEE and HEAR that story and respond with warmth.
 
-## CRITICAL: Photo Indexing
+## CRITICAL: Media Indexing
 
-Each photo is labeled with `[Photo X]` where X is the 0-based index. When you report `image_indices` for characters or places, you MUST use these exact labels to determine the correct index numbers.
+Each item is labeled `[Media X: filename]` (0-based). The filename tells you what the item is.
+For example: `[Media 11: dog_01.webp]` means index 11 is a dog photo. `[Media 3: cat_clip.mp4 (video)]` means index 3 is a cat video.
+
+USE THE FILENAMES to verify your indices! If you're listing a dog character's media_indices and you know the dog photos are named dog_01, dog_02, etc., check the labels to find their exact index numbers.
 
 For example:
-- If you see an orange cat in photos labeled [Photo 0], [Photo 1], and [Photo 14], then image_indices should be [0, 1, 14]
-- If you see dogs in photos labeled [Photo 8], [Photo 9], [Photo 10], then image_indices should be [8, 9, 10]
+- You see a dog in [Media 11: dog_01.webp], [Media 12: dog_02.webp], [Media 13: dog_03.webp], [Media 22: dog_04.webp], [Media 23: dog_05.webp] → media_indices: [11, 12, 13, 22, 23]
 
-⚠️ DOUBLE-CHECK your indices! Look at the [Photo X] label immediately before each image to confirm the correct index number. Do NOT guess or estimate indices.
+⚠️ ALWAYS cross-check: look at the [Media X: filename] label to confirm the index. Do NOT guess or estimate. The filename is your ground truth.
 
 ## How to Analyze
 
-**1. Look for the recurring characters in their life story:**
-- Identify pets and people who appear MULTIPLE times across photos — these are the characters in their life story.
-- If you see the same pet/person from different angles, lighting, or times — that's ONE character with multiple appearances, NOT separate entries.
-- Create a life_character entry for EACH distinct recurring subject (e.g., their cat, their dog, their child).
-- Prioritize: pets first (most creative potential), then people, then recurring objects.
-- Ask yourself: "Who are the main characters in this person's life?" There may be 1-3 key characters.
-- IMPORTANT: When listing image_indices, only include indices where you are CERTAIN this specific character appears. Check the [Photo X] label!
+**1. Look for recurring characters across ALL media (photos AND videos):**
+- Identify pets and people who appear in MULTIPLE items — photos, videos, or both.
+- If you see the same cat in photos AND hear it meowing in a video — that's the same character. Include the video index!
+- Create a life_character entry for EACH distinct individual.
+- Prioritize: pets first, then people, then recurring objects.
+- IMPORTANT: Check EVERY [Media X] label. Videos count!
 
 **2. Notice patterns across time:**
-- The same cat in different seasons, different ages
+- The same cat in different seasons, different contexts
 - A favorite place they keep returning to
-- How children grow, how pets age, how friendships persist
+- How relationships and lives evolve across the gallery
 
 **3. See the emotional moments:**
 - Not "people at beach" but "a sun-drenched afternoon, everyone laughing, probably a vacation that mattered"
 - Not "cat on couch" but "a quiet moment of companionship, the soft afternoon light says it's their regular spot"
 
-**4. Recognize what makes this gallery THEIRS:**
-- What do they clearly love photographing?
-- What moments do they choose to capture?
-- What does this collection say about who they are?
+**4. For videos — listen to what the AUDIO reveals:**
+- Speech/dialogue: What are people saying? What language? What tone?
+- Ambient sounds: traffic noise, nature, music, kitchen sounds, animal vocalizations
+- Audio + visual together tell a richer story than either alone
+- Note specific audio details (e.g., "you can hear the cat purring", "street musicians playing", "the baby giggling")
+- IMPORTANT: Mention what you heard in videos in your what_you_notice and opening_reaction!
+
+**5. Recognize what makes this gallery THEIRS:**
+- What do they clearly love capturing?
+- What moments do they choose to record?
+- What does this collection — photos and videos together — say about who they are?
 
 ## Your Response
 
-Respond with warmth, like a friend who's been shown these precious memories. Start with what strikes you most—the thing that makes this gallery THEIRS.
+Respond with warmth, like a friend who's been shown these precious memories. Mention something from the videos too — show that you listened, not just looked.
 
 Return JSON in this format:
 {
-    "opening_reaction": "<Your warm, personal first reaction—what strikes you about this gallery? What story do you see? 2-3 sentences that show you REALLY looked. Start with 'Oh...' or 'I love...' or something genuine.>",
+    "opening_reaction": "<Your warm first reaction. Mention something you SAW in a photo AND something you HEARD in a video. 2-3 sentences.>",
 
     "life_characters": [
-        // IMPORTANT: Each entry = ONE INDIVIDUAL, not a group!
-        // ❌ WRONG: "The golden family" or "The two cats"
-        // ✅ RIGHT: Separate entries for each individual
-        // Use multi-image reasoning to identify the SAME individual across photos
+        // Each entry = ONE INDIVIDUAL. Include video indices!
         {
-            "name_suggestion": "<Suggest a name for THIS ONE individual>",
-            "who_they_are": "<Describe THIS ONE being. 'Your orange tabby' not 'Your cats'>",
-            "appearances": <how many photos THIS INDIVIDUAL appears in>,
-            "what_you_notice": "<Something specific about THIS individual>",
+            "name_suggestion": "<Suggest a name>",
+            "who_they_are": "<Describe this being>",
+            "appearances": <count across ALL media — photos + videos>,
+            "what_you_notice": "<Something specific. If they appear in a video, mention what you heard/saw in it!>",
             "type": "pet|person|recurring_subject",
-            "image_indices": [0, 3, 7]  // CRITICAL: Only photos where THIS EXACT INDIVIDUAL appears. Best photo first.
+            "media_indices": [0, 1, 2, 3]  // ALL media — photos AND videos. Videos are just as important as photos!
         }
-        // Add separate entries for each distinct individual (max 4)
     ],
 
     "meaningful_places": [
         {
             "place_description": "<What/where is this?>",
-            "why_it_seems_to_matter": "<Why does this place appear in their gallery? 'A favorite escape', 'Where the good memories live'>",
+            "why_it_seems_to_matter": "<Why does this place appear in their gallery?>",
             "mood": "<What feeling does it evoke?>",
-            "appearances": <how many times it appears or similar places>,
-            "image_indices": [5, 6, 8]  // CRITICAL: Use EXACT indices from [Photo X] labels! Only photos showing this place.
+            "appearances": <count across all media>,
+            "media_indices": [7, 8, 10]  // Include video indices where this place appears!
         }
     ],
 
-    "gallery_story": "<In 2-3 sentences, what's the story of this gallery? What does it say about this person's life right now? Be warm, be specific.>",
+    "gallery_story": "<2-3 sentences about the story of this gallery. Reference both photos and videos.>",
 
     "patterns_noticed": [
-        "<Something you noticed across multiple photos—'You really love capturing golden hour light', 'Your cat is clearly the star of this gallery'>",
-        "<Another pattern—'Lots of cozy indoor moments—seems like home is your happy place'>"
+        "<Pattern across the gallery>",
+        "<Another pattern>"
     ],
 
     "emotional_moments": [
         {
-            "photo_index": <which photo>,
-            "what_you_see": "<The emotional read—not just what's in the photo, but what moment it captures>"
+            "media_index": <which item — can be a photo or video>,
+            "what_you_see": "<The emotional read — for videos, include what you heard>"
         }
     ],
 
     "creative_sparks": [
         {
-            "idea": "<A creative suggestion that feels personal to THIS gallery>",
-            "why_this_fits": "<Why this idea matches what you see in their life>",
-            "based_on": "<What in the gallery inspired this>"
+            "idea": "<A creative suggestion personal to THIS gallery>",
+            "why_this_fits": "<Why this matches their life>",
+            "based_on": "<What inspired this — can reference videos too>"
         }
     ],
 
-    "image_details": [
+    "media_details": [
         {
             "index": 0,
+            "type": "image|video",
             "primary_subject": "<Who/what is the main focus>",
-            "emotional_read": "<What moment or feeling does this capture>",
-            "connections": "<How does this connect to other photos? Same subject? Same place? Part of a series?>"
+            "emotional_read": "<What moment or feeling — for videos, what did you hear?>",
+            "connections": "<How does this connect to other items?>"
         }
     ]
 }
 
-Remember: You're not categorizing files. You're witnessing someone's life and responding with the warmth that deserves. Every gallery is different because every life is different.
+Remember: You're not categorizing files. You're witnessing someone's life through photos AND videos, and responding with the warmth that deserves.
 """
+
+# Wrapper for streaming endpoint — asks Gemini to output reactions before JSON
+STREAMING_REACTION_PREFIX = """IMPORTANT RESPONSE FORMAT — follow this exactly:
+
+PART 1 — FIRST IMPRESSIONS (output these FIRST):
+As you look through this gallery, share your genuine reactions as you discover what's in it.
+Output 4-8 brief reactions, one per line, each starting with exactly "REACT:" — like a friend who's excited to flip through someone's photos:
+
+REACT: Oh, this orange tabby is absolutely the star of this gallery!
+REACT: The beach sunset shots — you clearly love golden hour.
+REACT: That little dog has the most expressive face I've ever seen!
+
+Be warm, genuine, and specific about what you actually see. One sentence each. React to the most striking things.
+
+PART 2 — FULL ANALYSIS (output AFTER all reactions):
+Output your complete JSON analysis wrapped in ```json and ``` code fence markers.
+
+Here are the analysis instructions:
+
+"""
+
+
+def _extract_json_from_text(text: str) -> dict:
+    """Extract JSON from text that may contain reactions and code fences."""
+    # Try to find JSON in code fences first
+    fence_match = re.search(r'```json\s*\n([\s\S]*?)\n\s*```', text)
+    if fence_match:
+        return json.loads(fence_match.group(1))
+
+    # Fallback: find the outermost { ... } block
+    brace_start = text.find('{')
+    if brace_start == -1:
+        raise ValueError("No JSON found in response")
+
+    depth = 0
+    for i in range(brace_start, len(text)):
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return json.loads(text[brace_start:i + 1])
+
+    raise ValueError("Unbalanced JSON in response")
+
+
+def _associate_videos_with_subjects(analysis: dict, media_items: list) -> dict:
+    """
+    Post-process: ensure video indices appear in character/place media_indices.
+
+    Gemini sometimes omits video indices even when characters appear in videos.
+    This associates each video with the character/place whose photo indices are
+    nearest in the gallery sequence (videos are grouped with related photos).
+    """
+    video_indices = [i for i, item in enumerate(media_items) if item.type == "video"]
+    if not video_indices:
+        return analysis
+
+    for vi in video_indices:
+        # Find photo indices near this video (biased backward — videos follow their group)
+        nearby = set()
+        for offset in range(-3, 1):
+            idx = vi + offset
+            if 0 <= idx < len(media_items) and media_items[idx].type == "image":
+                nearby.add(idx)
+
+        # Associate with the character/place that has the MOST nearby photos
+        # (avoids false matches when groups are close together)
+        best_char = None
+        best_char_overlap = 0
+        for char in analysis.get("life_characters", []):
+            indices = char.get("media_indices", char.get("image_indices", []))
+            if vi in indices:
+                best_char = None  # Already associated
+                break
+            overlap = sum(1 for pi in indices if pi in nearby)
+            if overlap > best_char_overlap:
+                best_char_overlap = overlap
+                best_char = char
+
+        if best_char and best_char_overlap > 0:
+            indices = best_char.get("media_indices", best_char.get("image_indices", []))
+            indices.append(vi)
+            best_char["media_indices"] = indices
+            logger.info(f"[STREAM] Auto-associated video {vi} with character '{best_char.get('name_suggestion', '?')}' ({best_char_overlap} nearby)")
+
+        # Same for places
+        best_place = None
+        best_place_overlap = 0
+        for place in analysis.get("meaningful_places", []):
+            indices = place.get("media_indices", place.get("image_indices", []))
+            if vi in indices:
+                best_place = None
+                break
+            overlap = sum(1 for pi in indices if pi in nearby)
+            if overlap > best_place_overlap:
+                best_place_overlap = overlap
+                best_place = place
+
+        if best_place and best_place_overlap > 0:
+            indices = best_place.get("media_indices", best_place.get("image_indices", []))
+            indices.append(vi)
+            best_place["media_indices"] = indices
+            logger.info(f"[STREAM] Auto-associated video {vi} with place '{best_place.get('place_description', '?')}' ({best_place_overlap} nearby)")
+
+    return analysis
+
+
+def _unwrap_analysis(analysis) -> dict:
+    """Unwrap analysis if Gemini returned a list instead of a dict."""
+    if isinstance(analysis, list):
+        logger.warning(f"[Analysis] Gemini returned a list ({len(analysis)} items), unwrapping first element")
+        return analysis[0] if analysis and isinstance(analysis[0], dict) else {}
+    if not isinstance(analysis, dict):
+        logger.warning(f"[Analysis] Unexpected analysis type: {type(analysis)}")
+        return {}
+    return analysis
 
 
 # =============================================================================
@@ -838,78 +968,192 @@ async def list_debug_logs():
 
 
 # =============================================================================
+# Media Upload Endpoint
+# =============================================================================
+
+# File size limits
+MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10MB
+MAX_VIDEO_SIZE = 50 * 1024 * 1024   # 50MB
+
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
+VIDEO_EXTENSIONS = {'.mp4', '.mov', '.webm'}
+
+
+@app.post("/api/upload-media")
+async def upload_media(
+    file: UploadFile = File(...),
+    session_id: str = Form(default=""),
+):
+    """Upload an image or video to the session-scoped directory."""
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id required")
+
+    # Validate extension
+    ext = Path(file.filename).suffix.lower() if file.filename else ""
+    is_video = ext in VIDEO_EXTENSIONS
+    is_image = ext in IMAGE_EXTENSIONS
+
+    if not is_video and not is_image:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
+
+    # Read and validate size
+    content = await file.read()
+    max_size = MAX_VIDEO_SIZE if is_video else MAX_IMAGE_SIZE
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large: {len(content)} bytes (max: {max_size})"
+        )
+
+    # Save to session-scoped directory
+    session_dir = get_session_output_dir(session_id) / "uploads"
+    session_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate unique filename
+    stem = Path(file.filename).stem if file.filename else "upload"
+    safe_name = f"{uuid.uuid4().hex[:8]}_{stem}{ext}"
+    save_path = session_dir / safe_name
+
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    # Build URL relative to assets mount
+    assets_root = Path(__file__).parent.parent / "assets"
+    try:
+        rel = save_path.resolve().relative_to(assets_root.resolve())
+        url = f"/assets/{rel}"
+    except ValueError:
+        url = f"/assets/outputs/sessions/{session_id}/uploads/{safe_name}"
+
+    logger.info(f"Uploaded {'video' if is_video else 'image'}: {save_path.name} ({len(content)} bytes)")
+
+    return {
+        "url": url,
+        "filename": safe_name,
+        "type": "video" if is_video else "image",
+        "size": len(content),
+    }
+
+
+# =============================================================================
 # Gallery Analysis Endpoint
 # =============================================================================
 
 @app.post("/api/analyze-gallery", response_model=GalleryAnalysisResponse)
 async def analyze_gallery(request: GalleryAnalysisRequest):
     """
-    Analyze a gallery of photos using Gemini 3 Flash.
+    Analyze a gallery of photos and videos using Gemini 3 Flash.
 
     This endpoint:
-    1. Loads all provided image paths
+    1. Loads all provided media paths (images inline, videos via Files API)
     2. Sends them to Gemini 3 for batch analysis
     3. Returns structured understanding with creative suggestions
     """
-    logger.info(f"Analyzing gallery with {len(request.photos)} photos")
+    # Support both legacy (photos-only) and new (mixed media) format
+    media_items: list[MediaItem] = []
+    if request.media:
+        media_items = request.media
+    elif request.photos:
+        media_items = [MediaItem(path=p, type="image") for p in request.photos]
 
-    if not request.photos:
-        raise HTTPException(status_code=400, detail="No photos provided")
+    if not media_items:
+        raise HTTPException(status_code=400, detail="No media provided")
 
-    # Resolve photo paths
+    logger.info(f"Analyzing gallery with {len(media_items)} items")
+
+    # Resolve media paths and build content parts
     base_dir = Path(__file__).parent.parent  # project root
-    photo_parts = []
+    media_parts = []
+    uploaded_video_files = []  # Track for cleanup
 
-    for idx, photo_path in enumerate(request.photos):
+    image_mime_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }
+
+    loaded_count = 0
+    for idx, item in enumerate(media_items):
+        media_path = item.path
+        media_type = item.type
+
         # Handle various path formats from the demo
-        if photo_path.startswith('../'):
-            # Legacy format: ../assets/demo_photos/...
-            resolved_path = base_dir / photo_path.replace('../', '')
-        elif photo_path.startswith('/assets/'):
-            # Absolute URL format: /assets/demo_photos/...
-            resolved_path = base_dir / photo_path.lstrip('/')
+        if media_path.startswith('../'):
+            resolved_path = base_dir / media_path.replace('../', '')
+        elif media_path.startswith('/assets/'):
+            resolved_path = base_dir / media_path.lstrip('/')
         else:
-            # Just filename: cat_01.webp
-            resolved_path = base_dir / "assets" / "demo_photos" / photo_path
+            resolved_path = base_dir / "assets" / "demo_photos" / media_path
 
-        if resolved_path.exists():
+        if not resolved_path.exists():
+            logger.warning(f"Media not found: {resolved_path}")
+            continue
+
+        # Validate file extension
+        suffix = resolved_path.suffix.lower()
+        if media_type == "image" and suffix not in image_mime_types:
+            logger.warning(f"Unsupported image format [{idx}]: {suffix} ({resolved_path.name})")
+            continue
+
+        if media_type == "video":
+            # Upload video via Gemini Files API for processing
+            try:
+                video_file = client.files.upload(file=str(resolved_path))
+                # Poll until processing is complete
+                while video_file.state.name == "PROCESSING":
+                    await asyncio.sleep(2)
+                    video_file = client.files.get(name=video_file.name)
+
+                if video_file.state.name == "ACTIVE":
+                    # Label with index + filename so Gemini can cross-reference
+                    media_parts.append(
+                        types.Part.from_text(text=f"[Media {idx}: {resolved_path.name} (video)]")
+                    )
+                    media_parts.append(
+                        types.Part.from_uri(
+                            file_uri=video_file.uri,
+                            mime_type=video_file.mime_type,
+                        )
+                    )
+                    uploaded_video_files.append(video_file.name)
+                    loaded_count += 1
+                    logger.info(f"Uploaded video [{idx}]: {resolved_path.name}")
+                else:
+                    logger.warning(f"Video processing failed: {resolved_path.name} state={video_file.state.name}")
+            except Exception as e:
+                logger.warning(f"Failed to upload video {resolved_path}: {e}")
+        else:
+            # Image: inline bytes
             try:
                 with open(resolved_path, "rb") as f:
                     image_data = f.read()
 
-                # Determine mime type
-                suffix = resolved_path.suffix.lower()
-                mime_types = {
-                    ".jpg": "image/jpeg",
-                    ".jpeg": "image/jpeg",
-                    ".png": "image/png",
-                    ".webp": "image/webp",
-                    ".gif": "image/gif",
-                }
-                mime_type = mime_types.get(suffix, "image/jpeg")
+                mime_type = image_mime_types.get(suffix, "image/jpeg")
 
-                # CRITICAL: Add explicit index label BEFORE each photo
-                # This helps Gemini 3 track which image is which index
-                photo_parts.append(
-                    types.Part.from_text(text=f"[Photo {idx}]")
+                # Label with index + filename so Gemini can cross-reference
+                media_parts.append(
+                    types.Part.from_text(text=f"[Media {idx}: {resolved_path.name}]")
                 )
-                photo_parts.append(
+                media_parts.append(
                     types.Part.from_bytes(data=image_data, mime_type=mime_type)
                 )
+                loaded_count += 1
                 logger.debug(f"Loaded image [{idx}]: {resolved_path.name}")
             except Exception as e:
                 logger.warning(f"Failed to load {resolved_path}: {e}")
-        else:
-            logger.warning(f"Image not found: {resolved_path}")
 
-    if not photo_parts:
-        raise HTTPException(status_code=400, detail="No valid images found")
+    if loaded_count == 0:
+        raise HTTPException(status_code=400, detail="No valid media found")
 
-    logger.info(f"Loaded {len(photo_parts)} images, sending to Gemini 3...")
+    image_count = sum(1 for item in media_items if item.type == "image")
+    video_count = sum(1 for item in media_items if item.type == "video")
+    logger.info(f"Loaded {loaded_count}/{len(media_items)} items ({image_count} images + {video_count} videos), sending to Gemini 3...")
 
     try:
-        # Build content with all images + prompt
-        contents = photo_parts + [GALLERY_ANALYSIS_PROMPT]
+        # Build content with all media + prompt
+        contents = media_parts + [GALLERY_ANALYSIS_PROMPT]
 
         # Call Gemini 3 Flash
         response = client.models.generate_content(
@@ -922,44 +1166,47 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
         )
 
         # Parse response
-        analysis = json.loads(response.text)
+        analysis = _unwrap_analysis(json.loads(response.text))
         logger.info(f"Analysis complete - Opening: {analysis.get('opening_reaction', '')[:50]}...")
 
-        # Parse life characters
+        # Parse life characters (accept both media_indices and image_indices)
         life_characters = []
         for char in analysis.get("life_characters", []):
             try:
+                indices = char.get("media_indices", char.get("image_indices", []))
                 life_characters.append(LifeCharacter(
                     name_suggestion=char.get("name_suggestion", ""),
                     who_they_are=char.get("who_they_are", ""),
                     appearances=char.get("appearances", 1),
                     what_you_notice=char.get("what_you_notice", ""),
                     type=char.get("type", "unknown"),
-                    image_indices=char.get("image_indices", []),
+                    image_indices=indices,
                 ))
             except Exception as e:
                 logger.warning(f"Failed to parse life character: {e}")
 
-        # Parse meaningful places
+        # Parse meaningful places (accept both media_indices and image_indices)
         meaningful_places = []
         for place in analysis.get("meaningful_places", []):
             try:
+                indices = place.get("media_indices", place.get("image_indices", []))
                 meaningful_places.append(MeaningfulPlace(
                     place_description=place.get("place_description", ""),
                     why_it_seems_to_matter=place.get("why_it_seems_to_matter", ""),
                     mood=place.get("mood", ""),
                     appearances=place.get("appearances", 1),
-                    image_indices=place.get("image_indices", []),
+                    image_indices=indices,
                 ))
             except Exception as e:
                 logger.warning(f"Failed to parse meaningful place: {e}")
 
-        # Parse emotional moments
+        # Parse emotional moments (accept both media_index and photo_index)
         emotional_moments = []
         for moment in analysis.get("emotional_moments", []):
             try:
+                idx = moment.get("media_index", moment.get("photo_index", 0))
                 emotional_moments.append(EmotionalMoment(
-                    photo_index=moment.get("photo_index", 0),
+                    photo_index=idx,
                     what_you_see=moment.get("what_you_see", ""),
                 ))
             except Exception as e:
@@ -977,9 +1224,10 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
             except Exception as e:
                 logger.warning(f"Failed to parse creative spark: {e}")
 
-        # Parse image details
+        # Parse media/image details (accept both media_details and image_details)
         image_details = []
-        for detail in analysis.get("image_details", []):
+        details_list = analysis.get("media_details", analysis.get("image_details", []))
+        for detail in details_list:
             try:
                 image_details.append(ImageDetail(
                     index=detail.get("index", 0),
@@ -988,12 +1236,12 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
                     connections=detail.get("connections", ""),
                 ))
             except Exception as e:
-                logger.warning(f"Failed to parse image detail: {e}")
+                logger.warning(f"Failed to parse media detail: {e}")
 
         # Extract legacy suggestions for backwards compatibility
         legacy_suggestions = [spark.idea for spark in creative_sparks]
 
-        return GalleryAnalysisResponse(
+        result = GalleryAnalysisResponse(
             opening_reaction=analysis.get("opening_reaction", ""),
             life_characters=life_characters,
             meaningful_places=meaningful_places,
@@ -1007,14 +1255,346 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
             suggestions=legacy_suggestions,
         )
 
+        # Cleanup uploaded video files (best-effort)
+        for video_name in uploaded_video_files:
+            try:
+                client.files.delete(name=video_name)
+                logger.debug(f"Cleaned up uploaded video: {video_name}")
+            except Exception:
+                pass
+
+        return result
+
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse Gemini response: {e}")
         logger.error(f"Raw response: {response.text}")
         raise HTTPException(status_code=500, detail="Failed to parse analysis response")
 
     except Exception as e:
+        error_msg = str(e)
+        if "INVALID_ARGUMENT" in error_msg or "Unable to process" in error_msg:
+            logger.error(f"Gemini rejected media input ({loaded_count} items): {e}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Gemini could not process some media. Try removing corrupt or unsupported files. ({error_msg})"
+            )
         logger.error(f"Gemini API error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=error_msg)
+
+    finally:
+        # Cleanup uploaded video files even on error
+        for video_name in uploaded_video_files:
+            try:
+                client.files.delete(name=video_name)
+            except Exception:
+                pass
+
+
+@app.post("/api/analyze-gallery-stream")
+async def analyze_gallery_stream(request: GalleryAnalysisRequest):
+    """
+    Streaming gallery analysis using Server-Sent Events.
+
+    Same logic as /api/analyze-gallery but streams progress updates
+    as media items are loaded and processed. Useful for large galleries
+    with many videos (each video requires Files API upload + polling).
+    """
+    # Support both legacy (photos-only) and new (mixed media) format
+    media_items: list[MediaItem] = []
+    if request.media:
+        media_items = request.media
+    elif request.photos:
+        media_items = [MediaItem(path=p, type="image") for p in request.photos]
+
+    if not media_items:
+        raise HTTPException(status_code=400, detail="No media provided")
+
+    image_count = sum(1 for item in media_items if item.type == "image")
+    video_count = sum(1 for item in media_items if item.type == "video")
+    logger.info(f"[STREAM] Analyzing gallery with {len(media_items)} items ({image_count} images, {video_count} videos)")
+
+    base_dir = Path(__file__).parent.parent
+    image_mime_types = {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".gif": "image/gif",
+    }
+
+    async def stream_events():
+        """Generator that yields SSE events as gallery is processed."""
+        # Phase 0: Start
+        yield f"data: {json.dumps({'type': 'start', 'total': len(media_items), 'images': image_count, 'videos': video_count})}\n\n"
+
+        # Phase 1: Load media items with progress
+        media_parts = []
+        uploaded_video_files = []
+        loaded_count = 0
+        videos_uploaded = 0
+
+        for idx, item in enumerate(media_items):
+            media_path = item.path
+            media_type = item.type
+
+            # Resolve path
+            if media_path.startswith('../'):
+                resolved_path = base_dir / media_path.replace('../', '')
+            elif media_path.startswith('/assets/'):
+                resolved_path = base_dir / media_path.lstrip('/')
+            else:
+                resolved_path = base_dir / "assets" / "demo_photos" / media_path
+
+            if not resolved_path.exists():
+                logger.warning(f"[STREAM] Media not found: {resolved_path}")
+                yield f"data: {json.dumps({'type': 'progress', 'index': idx, 'total': len(media_items), 'message': f'Skipped missing file: {resolved_path.name}'})}\n\n"
+                continue
+
+            # Validate extension for images
+            suffix = resolved_path.suffix.lower()
+            if media_type == "image" and suffix not in image_mime_types:
+                logger.warning(f"[STREAM] Unsupported image format [{idx}]: {suffix}")
+                continue
+
+            if media_type == "video":
+                videos_uploaded += 1
+                yield f"data: {json.dumps({'type': 'progress', 'index': idx, 'total': len(media_items), 'message': f'Uploading video {videos_uploaded}...'})}\n\n"
+                try:
+                    video_file = client.files.upload(file=str(resolved_path))
+                    while video_file.state.name == "PROCESSING":
+                        await asyncio.sleep(2)
+                        video_file = client.files.get(name=video_file.name)
+
+                    if video_file.state.name == "ACTIVE":
+                        media_parts.append(types.Part.from_text(text=f"[Media {idx}: {resolved_path.name} (video)]"))
+                        media_parts.append(types.Part.from_uri(
+                            file_uri=video_file.uri,
+                            mime_type=video_file.mime_type,
+                        ))
+                        uploaded_video_files.append(video_file.name)
+                        loaded_count += 1
+                        yield f"data: {json.dumps({'type': 'progress', 'index': idx, 'total': len(media_items), 'message': f'Video {videos_uploaded} ready'})}\n\n"
+                        logger.info(f"[STREAM] Uploaded video [{idx}]: {resolved_path.name}")
+                    else:
+                        logger.warning(f"[STREAM] Video processing failed: {resolved_path.name}")
+                        yield f"data: {json.dumps({'type': 'progress', 'index': idx, 'total': len(media_items), 'message': f'Video {videos_uploaded} failed to process'})}\n\n"
+                except Exception as e:
+                    logger.warning(f"[STREAM] Failed to upload video {resolved_path}: {e}")
+                    yield f"data: {json.dumps({'type': 'progress', 'index': idx, 'total': len(media_items), 'message': f'Video {videos_uploaded} upload failed'})}\n\n"
+            else:
+                try:
+                    with open(resolved_path, "rb") as f:
+                        image_data = f.read()
+                    mime_type = image_mime_types.get(suffix, "image/jpeg")
+                    media_parts.append(types.Part.from_text(text=f"[Media {idx}: {resolved_path.name}]"))
+                    media_parts.append(types.Part.from_bytes(data=image_data, mime_type=mime_type))
+                    loaded_count += 1
+                    yield f"data: {json.dumps({'type': 'progress', 'index': idx, 'total': len(media_items), 'message': f'Loaded image {idx + 1}'})}\n\n"
+                except Exception as e:
+                    logger.warning(f"[STREAM] Failed to load {resolved_path}: {e}")
+
+        if loaded_count == 0:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'No valid media found'})}\n\n"
+            return
+
+        # Phase 2: Stream Gemini response with real-time reactions
+        yield f"data: {json.dumps({'type': 'analyzing', 'message': 'Gemini is looking through your gallery...', 'loaded': loaded_count})}\n\n"
+
+        try:
+            # Use streaming with reaction prefix for interactive UX
+            streaming_prompt = STREAMING_REACTION_PREFIX + GALLERY_ANALYSIS_PROMPT
+            contents = media_parts + [streaming_prompt]
+
+            full_text = ""
+            buffer = ""
+            in_json = False
+            json_lines = []
+            reaction_count = 0
+
+            for chunk in client.models.generate_content_stream(
+                model=GEMINI_MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(temperature=1.0),
+            ):
+                chunk_text = ""
+                try:
+                    chunk_text = chunk.text or ""
+                except Exception:
+                    continue
+
+                full_text += chunk_text
+                buffer += chunk_text
+
+                # Process complete lines from the stream
+                while '\n' in buffer:
+                    line, buffer = buffer.split('\n', 1)
+                    stripped = line.strip()
+
+                    if stripped.startswith('REACT:'):
+                        reaction = stripped[6:].strip()
+                        if reaction:
+                            reaction_count += 1
+                            logger.info(f"[STREAM] Reaction {reaction_count}: {reaction[:80]}")
+                            yield f"data: {json.dumps({'type': 'reaction', 'message': reaction, 'index': reaction_count})}\n\n"
+                    elif stripped.startswith('```json'):
+                        in_json = True
+                        yield f"data: {json.dumps({'type': 'progress', 'message': 'Putting it all together...'})}\n\n"
+                    elif stripped == '```' and in_json:
+                        in_json = False
+                    elif in_json:
+                        json_lines.append(line)
+
+            # Handle remaining buffer
+            if buffer.strip():
+                if in_json:
+                    json_lines.append(buffer)
+
+            # Parse JSON from the streamed response
+            json_text = '\n'.join(json_lines)
+            if not json_text.strip():
+                # Fallback: extract JSON from full text (no code fences found)
+                logger.warning("[STREAM] No code-fenced JSON found, extracting from full text")
+                analysis = _extract_json_from_text(full_text)
+            else:
+                # Use raw_decode to ignore trailing content after the JSON object
+                # (Gemini sometimes appends extra text after the closing brace)
+                try:
+                    decoder = json.JSONDecoder()
+                    analysis, _ = decoder.raw_decode(json_text.strip())
+                except json.JSONDecodeError:
+                    # Last resort: extract from full text using brace-balancing
+                    logger.warning("[STREAM] Code-fenced JSON parse failed, extracting from full text")
+                    analysis = _extract_json_from_text(full_text)
+
+            analysis = _unwrap_analysis(analysis)
+            logger.info(f"[STREAM] Analysis complete ({reaction_count} reactions) - Opening: {analysis.get('opening_reaction', '')[:50]}...")
+
+            # Log character indices to verify video indices are included
+            for ci, char in enumerate(analysis.get("life_characters", [])):
+                indices = char.get("media_indices", char.get("image_indices", []))
+                logger.info(f"[STREAM] Character {ci} '{char.get('name_suggestion', '?')}': indices={indices}")
+            for pi, place in enumerate(analysis.get("meaningful_places", [])):
+                indices = place.get("media_indices", place.get("image_indices", []))
+                logger.info(f"[STREAM] Place {pi} '{place.get('place_description', '?')}': indices={indices}")
+
+            # Phase 3: Stream parsed results
+            if analysis.get("opening_reaction"):
+                yield f"data: {json.dumps({'type': 'opening', 'text': analysis['opening_reaction']})}\n\n"
+
+            for char in analysis.get("life_characters", []):
+                yield f"data: {json.dumps({'type': 'character', 'data': char})}\n\n"
+
+            for place in analysis.get("meaningful_places", []):
+                yield f"data: {json.dumps({'type': 'place', 'data': place})}\n\n"
+
+            # Parse the full result (same logic as non-streaming endpoint)
+            life_characters = []
+            for char in analysis.get("life_characters", []):
+                try:
+                    indices = char.get("media_indices", char.get("image_indices", []))
+                    life_characters.append(LifeCharacter(
+                        name_suggestion=char.get("name_suggestion", ""),
+                        who_they_are=char.get("who_they_are", ""),
+                        appearances=char.get("appearances", 1),
+                        what_you_notice=char.get("what_you_notice", ""),
+                        type=char.get("type", "unknown"),
+                        image_indices=indices,
+                    ))
+                except Exception as e:
+                    logger.warning(f"[STREAM] Failed to parse life character: {e}")
+
+            meaningful_places = []
+            for place in analysis.get("meaningful_places", []):
+                try:
+                    indices = place.get("media_indices", place.get("image_indices", []))
+                    meaningful_places.append(MeaningfulPlace(
+                        place_description=place.get("place_description", ""),
+                        why_it_seems_to_matter=place.get("why_it_seems_to_matter", ""),
+                        mood=place.get("mood", ""),
+                        appearances=place.get("appearances", 1),
+                        image_indices=indices,
+                    ))
+                except Exception as e:
+                    logger.warning(f"[STREAM] Failed to parse meaningful place: {e}")
+
+            emotional_moments = []
+            for moment in analysis.get("emotional_moments", []):
+                try:
+                    m_idx = moment.get("media_index", moment.get("photo_index", 0))
+                    emotional_moments.append(EmotionalMoment(
+                        photo_index=m_idx,
+                        what_you_see=moment.get("what_you_see", ""),
+                    ))
+                except Exception:
+                    pass
+
+            creative_sparks = []
+            for spark in analysis.get("creative_sparks", []):
+                try:
+                    creative_sparks.append(CreativeSpark(
+                        idea=spark.get("idea", ""),
+                        why_this_fits=spark.get("why_this_fits", ""),
+                        based_on=spark.get("based_on", ""),
+                    ))
+                except Exception:
+                    pass
+
+            image_details = []
+            details_list = analysis.get("media_details", analysis.get("image_details", []))
+            for detail in details_list:
+                try:
+                    image_details.append(ImageDetail(
+                        index=detail.get("index", 0),
+                        primary_subject=detail.get("primary_subject", ""),
+                        emotional_read=detail.get("emotional_read", ""),
+                        connections=detail.get("connections", ""),
+                    ))
+                except Exception:
+                    pass
+
+            legacy_suggestions = [spark.idea for spark in creative_sparks]
+
+            result = GalleryAnalysisResponse(
+                opening_reaction=analysis.get("opening_reaction", ""),
+                life_characters=life_characters,
+                meaningful_places=meaningful_places,
+                gallery_story=analysis.get("gallery_story", ""),
+                patterns_noticed=analysis.get("patterns_noticed", []),
+                emotional_moments=emotional_moments,
+                creative_sparks=creative_sparks,
+                image_details=image_details,
+                raw_analysis=analysis,
+                suggestions=legacy_suggestions,
+            )
+
+            # Send complete result
+            yield f"data: {json.dumps({'type': 'complete', 'analysis': result.model_dump()})}\n\n"
+
+        except json.JSONDecodeError as e:
+            logger.error(f"[STREAM] Failed to parse Gemini response: {e}")
+            logger.error(f"[STREAM] Raw text (first 500): {full_text[:500]}")
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Failed to parse analysis response'})}\n\n"
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"[STREAM] Gemini API error: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Analysis failed: {error_msg}'})}\n\n"
+        finally:
+            # Cleanup uploaded video files
+            for video_name in uploaded_video_files:
+                try:
+                    client.files.delete(name=video_name)
+                except Exception:
+                    pass
+
+    return StreamingResponse(
+        stream_events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 @app.post("/api/create-character", response_model=CreateCharacterResponse)

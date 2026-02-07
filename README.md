@@ -1,6 +1,6 @@
 # Gemini VibeCut
 
-> Turn your photos into anime characters. Turn your screenshots into worlds. Make manga and videos with them.
+> Turn your sleeping digital assets into personalized content.
 
 **Human content at the core. Human directed. AI assisted.**
 
@@ -10,9 +10,9 @@ Built for the [Gemini 3 Hackathon](https://gemini3.devpost.com/).
 
 ## What It Does
 
-Upload your photos and VibeCut transforms them into a creative universe:
+Upload your photos and videos — VibeCut transforms them into a creative universe:
 
-1. **Photo** → Gemini analyzes your gallery (pets, people, scenes)
+1. **Gallery** → Gemini analyzes your media (pets, people, scenes — photos and videos)
 2. **Character** → Generate an anime character sheet from reference photos
 3. **Manga** → Create a 4-panel story with your characters
 4. **Video** → Animate the manga into a 16s video with music and lyrics
@@ -32,8 +32,8 @@ Each step produces a shareable artifact. You own every character, every story.
 | Captions | Remotion | Karaoke-style rolling lyrics overlay |
 
 ```
-Photo Gallery
-    -> Gemini 3 Flash (understand)
+Photo + Video Gallery
+    -> Gemini 3 Flash (understand — images inline, videos via Files API)
     -> Gemini 3 Pro Image (character + manga)
     -> Veo 3.1 (animate)
     -> ElevenLabs (music + vocals)
@@ -76,7 +76,7 @@ gemini-vibecut/
 │   ├── api_server.py          # FastAPI backend (serves UI + API)
 │   ├── demo.html              # Main UI (single-page app)
 │   └── styles.css             # Styles
-├── agent/
+├── agent/                        # Client-side agent (browser JS)
 │   ├── brain.js               # Client-side agent (Gemini function calling)
 │   ├── context.js             # System prompt builder
 │   ├── skills.js              # Gemini tool declarations
@@ -96,7 +96,8 @@ gemini-vibecut/
 ├── models/                    # Data models (Character, Project, World)
 ├── config.py                  # Configuration (env vars, model IDs)
 ├── assets/
-│   ├── demo_photos/           # Sample photos for demo
+│   ├── demo_photos/           # Sample photos + videos for demo
+│   │   └── videos/            # 8 demo video clips (Mixkit CC0)
 │   └── outputs/               # Generated content (gitignored)
 └── tests/                     # Test suite
 ```
@@ -124,9 +125,10 @@ See `.env.example` for all options.
 │  Browser (demo.html)    │     │  FastAPI Server               │
 │                         │     │  (api_server.py)              │
 │  Agent Brain (JS)       │────>│                               │
-│  - Gemini function call │     │  /api/analyze-gallery         │
-│  - Skill execution      │     │  /api/create-character        │
-│  - IndexedDB workspace  │     │  /api/create-manga-stream     │
+│  - Gemini function call │     │  /api/upload-media            │
+│  - Skill execution      │     │  /api/analyze-gallery         │
+│  - IndexedDB workspace  │     │  /api/create-character        │
+│                         │     │  /api/create-manga-stream     │
 │                         │     │  /api/animate-story-stream    │
 └─────────────────────────┘     └──────────┬───────────────────┘
                                            │
@@ -140,8 +142,9 @@ See `.env.example` for all options.
 
 1. **Agentic**: Gemini decides content dynamically — no hardcoded `if/else` for creative decisions
 2. **Generative UX**: Each agent turn produces one rich UI widget (card + actions)
-3. **Per-session isolation**: Each browser tab gets its own IndexedDB and server-side output directory
-4. **GPU-free**: Entire pipeline runs on cloud APIs + CPU (no GPU required)
+3. **Mixed media**: Gallery supports photos + videos; drag-and-drop upload; video understanding via Gemini Files API
+4. **Per-session isolation**: Each browser tab gets its own IndexedDB and server-side output directory
+5. **GPU-free**: Entire pipeline runs on cloud APIs + CPU (no GPU required)
 
 ---
 

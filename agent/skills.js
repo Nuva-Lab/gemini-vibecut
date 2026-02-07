@@ -16,7 +16,7 @@
 export const skillFunctions = [
     {
         name: 'analyze_gallery',
-        description: 'Analyze the user\'s photo gallery to understand their life characters, meaningful places, and creative potential. Call this when user grants photo access. No parameters needed - URLs are injected automatically.',
+        description: 'Analyze the user\'s gallery (images and videos) to understand their life characters, meaningful places, and creative potential. Call this when user grants gallery access. No parameters needed - media items are injected automatically.',
         parameters: {
             type: 'object',
             properties: {},

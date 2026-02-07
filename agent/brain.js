@@ -256,10 +256,11 @@ export class AgentBrain {
 
         switch (name) {
             case 'analyze_gallery': {
-                // Inject photo URLs from session state (not from Gemini args)
+                // Inject media items from session state (not from Gemini args)
                 const photoUrls = sessionState.photoUrls || [];
-                await this.onSkillExecute('analyze_gallery', { photo_urls: photoUrls });
-                return { success: true, message: `Analyzed ${photoUrls.length} photos` };
+                const mediaItems = sessionState.mediaItems || photoUrls.map(u => ({ path: u, type: 'image' }));
+                await this.onSkillExecute('analyze_gallery', { photo_urls: photoUrls, media_items: mediaItems });
+                return { success: true, message: `Analyzed ${mediaItems.length} media items` };
             }
 
             case 'show_card': {
@@ -281,8 +282,8 @@ export class AgentBrain {
                     }
                 }
 
-                // Generic card display
-                await this.onSkillExecute('show_card', { card_type, content, message });
+                // Generic card display (pass subject_id for creation_suggestion etc.)
+                await this.onSkillExecute('show_card', { card_type, subject_id, content, message });
                 return { success: true, message: `Showed ${card_type} card` };
             }
 

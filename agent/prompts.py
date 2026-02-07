@@ -109,16 +109,21 @@ Respond in JSON format:
     # =========================================================================
 
     ANALYZE_GALLERY_DEEP = """
-You are about to look through someone's personal photo gallery. These aren't just images—they're windows into someone's life, their loves, their memories.
+You are about to look through someone's personal media gallery. These aren't just files—they're windows into someone's life, their loves, their memories. The gallery contains photos AND videos.
 
-Every photo gallery tells a unique story. Your job is to SEE that story and respond with warmth.
+Every gallery tells a unique story. Your job is to SEE that story and respond with warmth.
+
+## CRITICAL: Media Indexing
+
+Each item is labeled with `[Media X]` where X is the 0-based index. Items may be photos or video clips.
+When you report `media_indices` for characters or places, you MUST use these exact labels to determine the correct index numbers.
 
 ## How to Analyze
 
 **1. Look for the characters in their life story:**
-- Is there a pet who appears across multiple photos? That's not "5 pet photos"—that's a beloved companion who's central to their life.
+- Is there a pet who appears across multiple items? That's not "5 pet photos"—that's a beloved companion who's central to their life.
 - Do the same people appear together? Notice the relationships, the bonds.
-- Who do they photograph most? That reveals what they treasure.
+- Who do they capture most? That reveals what they treasure.
 
 **2. Notice patterns across time:**
 - The same cat in different seasons, different ages
@@ -129,9 +134,20 @@ Every photo gallery tells a unique story. Your job is to SEE that story and resp
 - Not "people at beach" but "a sun-drenched afternoon, everyone laughing, probably a vacation that mattered"
 - Not "cat on couch" but "a quiet moment of companionship, the soft afternoon light says it's their regular spot"
 
-**4. Recognize what makes this gallery THEIRS:**
-- What do they clearly love photographing?
-- What moments do they choose to capture?
+**4. For videos — note what motion reveals:**
+- Videos show behavior, personality, and relationships in ways photos cannot
+- Note key moments, actions, sounds, and what the video captures that a still photo can't
+- A video of a cat playing reveals energy and personality; a video of a street scene reveals atmosphere and life
+
+**5. For videos — listen to what the AUDIO reveals:**
+- Speech/dialogue: What are people saying? What language? What tone?
+- Ambient sounds: traffic noise, nature sounds, music, kitchen sounds, animal vocalizations
+- Audio + visual together tell a richer story than either alone
+- Note specific audio details that add context (e.g., "you can hear laughter in the background", "the cat is meowing insistently", "sizzling sounds from the kitchen")
+
+**6. Recognize what makes this gallery THEIRS:**
+- What do they clearly love capturing?
+- What moments do they choose to record?
 - What does this collection say about who they are?
 
 ## Your Response
@@ -146,9 +162,10 @@ Return JSON in this format:
         {
             "name_suggestion": "<If a pet/recurring subject, suggest a name or use 'your [description]'>",
             "who_they_are": "<Who is this in their life? 'Your orange tabby companion', 'The friend you adventure with', etc.>",
-            "appearances": <how many photos they appear in>,
+            "appearances": <how many items they appear in>,
             "what_you_notice": "<Something specific and touching—'They seem to love that sunny spot by the window', 'Always right there beside you in the outdoor shots'>",
-            "type": "pet|person|recurring_subject"
+            "type": "pet|person|recurring_subject",
+            "media_indices": [0, 1, 3]
         }
     ],
 
@@ -157,21 +174,22 @@ Return JSON in this format:
             "place_description": "<What/where is this?>",
             "why_it_seems_to_matter": "<Why does this place appear in their gallery? 'A favorite escape', 'Where the good memories live'>",
             "mood": "<What feeling does it evoke?>",
-            "appearances": <how many times it appears or similar places>
+            "appearances": <how many times it appears or similar places>,
+            "media_indices": [5, 6]
         }
     ],
 
     "gallery_story": "<In 2-3 sentences, what's the story of this gallery? What does it say about this person's life right now? Be warm, be specific.>",
 
     "patterns_noticed": [
-        "<Something you noticed across multiple photos—'You really love capturing golden hour light', 'Your cat is clearly the star of this gallery'>",
+        "<Something you noticed across multiple items—'You really love capturing golden hour light', 'Your cat is clearly the star of this gallery'>",
         "<Another pattern—'Lots of cozy indoor moments—seems like home is your happy place'>"
     ],
 
     "emotional_moments": [
         {
-            "photo_index": <which photo>,
-            "what_you_see": "<The emotional read—not just what's in the photo, but what moment it captures>"
+            "media_index": <which item index>,
+            "what_you_see": "<The emotional read—not just what's in the item, but what moment it captures>"
         }
     ],
 
@@ -183,12 +201,12 @@ Return JSON in this format:
         }
     ],
 
-    "image_details": [
+    "media_details": [
         {
             "index": 0,
             "primary_subject": "<Who/what is the main focus>",
             "emotional_read": "<What moment or feeling does this capture>",
-            "connections": "<How does this connect to other photos? Same subject? Same place? Part of a series?>"
+            "connections": "<How does this connect to other items? Same subject? Same place? Part of a series?>"
         }
     ]
 }

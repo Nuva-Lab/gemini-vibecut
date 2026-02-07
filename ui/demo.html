@@ -40,15 +40,25 @@
                     <div id="android-photos" class="photos-app android">
                         <!-- App Content - swappable views -->
                         <div class="app-content">
-                            <!-- Photos View -->
+                            <!-- Gallery View -->
                             <div id="android-photos-view" class="app-view active">
-                                <div class="photos-view-header">
-                                    <div class="photos-logo">
-                                        <img src="/assets/demo_photos/google_photos_icon.webp" alt="Photos">
+                                <div class="gallery-view-header">
+                                    <div class="gallery-logo-row">
+                                        <div class="photos-logo">
+                                            <img src="/assets/demo_photos/google_photos_icon.webp" alt="Gallery">
+                                        </div>
+                                        <span class="photos-title">Gallery</span>
                                     </div>
-                                    <span class="photos-title">Photos</span>
                                 </div>
-                                <div id="android-grid" class="photos-grid"></div>
+                                <!-- Hidden file input for uploads -->
+                                <input type="file" id="upload-input" multiple accept="image/*,video/mp4,video/quicktime,video/webm"
+                                    style="display: none;" onchange="handleFileUpload(event)">
+                                <!-- Drop zone overlay -->
+                                <div id="drop-zone" class="drop-zone hidden">
+                                    <span class="material-icons-outlined" style="font-size: 36px;">cloud_upload</span>
+                                    <p>Drop files here</p>
+                                </div>
+                                <div id="android-grid" class="media-grid"></div>
                             </div>
                             <!-- Create View -->
                             <div id="android-create-view" class="app-view">
@@ -104,8 +114,8 @@
                         <!-- App Nav - always visible -->
                         <div class="photos-nav">
                             <button class="nav-item active" onclick="switchView('android', 'photos')">
-                                <span class="material-icons-outlined">photo</span>
-                                Photos
+                                <span class="material-icons-outlined">photo_library</span>
+                                Gallery
                             </button>
                             <button class="nav-item create-btn" onclick="switchView('android', 'create')">
                                 <span class="material-icons-outlined">auto_awesome</span>
@@ -119,17 +129,15 @@
                                     style="display: none;">0</span>
                             </button>
                         </div>
-                        <!-- Photo Viewer -->
+                        <!-- Media Viewer -->
                         <div id="android-viewer" class="photo-viewer">
                             <div class="photo-viewer-header">
                                 <button class="photo-viewer-close" onclick="closeViewer('android')">×</button>
-                                <span style="color: white; font-size: 14px;">Selected</span>
                             </div>
                             <div class="photo-viewer-image">
-                                <img id="android-viewer-img" src="" alt="Selected photo">
-                            </div>
-                            <div class="photo-viewer-actions">
-                                <button class="photo-viewer-btn" onclick="usePhoto('android')">✨ Transform</button>
+                                <img id="android-viewer-img" src="" alt="Selected media">
+                                <video id="android-viewer-video" controls playsinline
+                                    style="display: none; max-width: 100%; max-height: 100%; border-radius: 8px;"></video>
                             </div>
                         </div>
                         <!-- Bottom Sheet for Character Creation (2-step flow) -->
@@ -177,7 +185,7 @@
                                 <div id="android-step-2" class="bottom-sheet-step" style="display: none;">
                                     <div class="bottom-sheet-header">
                                         <h3 id="android-step2-title">Select References</h3>
-                                        <p>Pick 1-3 photos of <span id="android-char-name-display">your character</span>
+                                        <p>Pick 1-3 images of <span id="android-char-name-display">your character</span>
                                         </p>
                                     </div>
                                     <div id="android-ref-grid" class="ref-photos-grid"></div>
@@ -227,13 +235,13 @@
                 <div class="permission-icon">
                     <span class="material-icons-outlined">photo_library</span>
                 </div>
-                <h2 class="permission-title">Allow access to your photos?</h2>
+                <h2 class="permission-title">Allow access to your gallery?</h2>
                 <div class="photo-count-badge">
                     <span class="material-icons-outlined">collections</span>
-                    <span id="photo-count-text">30 photos in gallery</span>
+                    <span id="photo-count-text">30 items in gallery</span>
                 </div>
                 <p class="permission-description">
-                    Creative Universe will use Gemini 3 to understand your photos and discover characters, people, and
+                    Creative Universe will use Gemini 3 to understand your gallery and discover characters, people, and
                     worlds you can bring to life.
                 </p>
                 <div class="permission-actions">
@@ -340,76 +348,206 @@
             }
         })();
 
-        // Photo data - organized in small sequences like a real gallery
-        const photoSequences = [
-            // Cat sequence 1
-            { name: 'cat_01', src: '/assets/demo_photos/pets/cat_01.webp' },
-            { name: 'cat_02', src: '/assets/demo_photos/pets/cat_02.webp' },
-            { name: 'cat_03', src: '/assets/demo_photos/pets/cat_03.webp' },
-            // Family at beach
-            { name: 'family_01', src: '/assets/demo_photos/people/family_01.webp' },
-            { name: 'family_02', src: '/assets/demo_photos/people/family_02.webp' },
-            // Tokyo night 1
-            { name: 'tokyo_01', src: '/assets/demo_photos/worlds/tokyo_01.webp' },
-            { name: 'tokyo_02', src: '/assets/demo_photos/worlds/tokyo_02.webp' },
-            { name: 'tokyo_03', src: '/assets/demo_photos/worlds/tokyo_03.webp' },
-            // Dog sequence
-            { name: 'dog_01', src: '/assets/demo_photos/pets/dog_01.webp' },
-            { name: 'dog_02', src: '/assets/demo_photos/pets/dog_02.webp' },
-            { name: 'dog_03', src: '/assets/demo_photos/pets/dog_03.webp' },
+        // Gallery media - organized in small sequences like a real gallery
+        // 3 representative videos (pets, people, places) + all photos
+        const mediaSequences = [
+            // Cat photos + cat meowing video
+            { name: 'cat_01', src: '/assets/demo_photos/pets/cat_01.webp', type: 'image' },
+            { name: 'cat_02', src: '/assets/demo_photos/pets/cat_02.webp', type: 'image' },
+            { name: 'cat_03', src: '/assets/demo_photos/pets/cat_03.webp', type: 'image' },
+            { name: 'cat_clip', src: '/assets/demo_photos/videos/cat_clip.mp4', type: 'video' },
+            // Family photos + family gathering video
+            { name: 'family_01', src: '/assets/demo_photos/people/family_01.webp', type: 'image' },
+            { name: 'family_02', src: '/assets/demo_photos/people/family_02.webp', type: 'image' },
+            { name: 'family_clip', src: '/assets/demo_photos/videos/family_clip.mp4', type: 'video' },
+            // Tokyo night photos + street walk video
+            { name: 'tokyo_01', src: '/assets/demo_photos/worlds/tokyo_01.webp', type: 'image' },
+            { name: 'tokyo_02', src: '/assets/demo_photos/worlds/tokyo_02.webp', type: 'image' },
+            { name: 'tokyo_03', src: '/assets/demo_photos/worlds/tokyo_03.webp', type: 'image' },
+            { name: 'street_walk', src: '/assets/demo_photos/videos/street_walk.mp4', type: 'video' },
+            // Dog photos
+            { name: 'dog_01', src: '/assets/demo_photos/pets/dog_01.webp', type: 'image' },
+            { name: 'dog_02', src: '/assets/demo_photos/pets/dog_02.webp', type: 'image' },
+            { name: 'dog_03', src: '/assets/demo_photos/pets/dog_03.webp', type: 'image' },
             // More family
-            { name: 'family_03', src: '/assets/demo_photos/people/family_03.webp' },
-            { name: 'family_04', src: '/assets/demo_photos/people/family_04.webp' },
-            { name: 'family_05', src: '/assets/demo_photos/people/family_05.webp' },
-            // Cat sequence 2
-            { name: 'cat_04', src: '/assets/demo_photos/pets/cat_04.webp' },
-            { name: 'cat_05', src: '/assets/demo_photos/pets/cat_05.webp' },
+            { name: 'family_03', src: '/assets/demo_photos/people/family_03.webp', type: 'image' },
+            { name: 'family_04', src: '/assets/demo_photos/people/family_04.webp', type: 'image' },
+            { name: 'family_05', src: '/assets/demo_photos/people/family_05.webp', type: 'image' },
+            // Cat photos 2
+            { name: 'cat_04', src: '/assets/demo_photos/pets/cat_04.webp', type: 'image' },
+            { name: 'cat_05', src: '/assets/demo_photos/pets/cat_05.webp', type: 'image' },
             // Tokyo night 2
-            { name: 'tokyo_04', src: '/assets/demo_photos/worlds/tokyo_04.webp' },
-            { name: 'tokyo_05', src: '/assets/demo_photos/worlds/tokyo_05.webp' },
-            { name: 'tokyo_06', src: '/assets/demo_photos/worlds/tokyo_06.webp' },
+            { name: 'tokyo_04', src: '/assets/demo_photos/worlds/tokyo_04.webp', type: 'image' },
+            { name: 'tokyo_05', src: '/assets/demo_photos/worlds/tokyo_05.webp', type: 'image' },
+            { name: 'tokyo_06', src: '/assets/demo_photos/worlds/tokyo_06.webp', type: 'image' },
             // More dogs
-            { name: 'dog_04', src: '/assets/demo_photos/pets/dog_04.webp' },
-            { name: 'dog_05', src: '/assets/demo_photos/pets/dog_05.webp' },
+            { name: 'dog_04', src: '/assets/demo_photos/pets/dog_04.webp', type: 'image' },
+            { name: 'dog_05', src: '/assets/demo_photos/pets/dog_05.webp', type: 'image' },
             // Family moments
-            { name: 'family_06', src: '/assets/demo_photos/people/family_06.webp' },
-            { name: 'family_07', src: '/assets/demo_photos/people/family_07.webp' },
+            { name: 'family_06', src: '/assets/demo_photos/people/family_06.webp', type: 'image' },
+            { name: 'family_07', src: '/assets/demo_photos/people/family_07.webp', type: 'image' },
             // Tokyo night 3
-            { name: 'tokyo_07', src: '/assets/demo_photos/worlds/tokyo_07.webp' },
-            { name: 'tokyo_08', src: '/assets/demo_photos/worlds/tokyo_08.webp' },
+            { name: 'tokyo_07', src: '/assets/demo_photos/worlds/tokyo_07.webp', type: 'image' },
+            { name: 'tokyo_08', src: '/assets/demo_photos/worlds/tokyo_08.webp', type: 'image' },
             // Last family shots
-            { name: 'family_08', src: '/assets/demo_photos/people/family_08.webp' },
-            { name: 'family_09', src: '/assets/demo_photos/people/family_09.webp' },
-            { name: 'family_10', src: '/assets/demo_photos/people/family_10.webp' },
+            { name: 'family_08', src: '/assets/demo_photos/people/family_08.webp', type: 'image' },
+            { name: 'family_09', src: '/assets/demo_photos/people/family_09.webp', type: 'image' },
+            { name: 'family_10', src: '/assets/demo_photos/people/family_10.webp', type: 'image' },
             // Final Tokyo
-            { name: 'tokyo_09', src: '/assets/demo_photos/worlds/tokyo_09.webp' },
-            { name: 'tokyo_10', src: '/assets/demo_photos/worlds/tokyo_10.webp' },
+            { name: 'tokyo_09', src: '/assets/demo_photos/worlds/tokyo_09.webp', type: 'image' },
+            { name: 'tokyo_10', src: '/assets/demo_photos/worlds/tokyo_10.webp', type: 'image' },
         ];
 
-        // Render mixed feed to grid
+        // Render mixed feed (images + videos) to grid
         function renderMixedFeed(device) {
             const grid = document.getElementById(`${device}-grid`);
 
-            grid.innerHTML = photoSequences.map((photo) => `
-                <div class="photo-item" onclick="openViewer('${device}', '${photo.src}')">
-                    <img src="${photo.src}" alt="${photo.name}" loading="lazy">
+            // Upload "+" slot as first grid item
+            const uploadSlot = `
+                <div class="media-item upload-slot" onclick="triggerUpload()">
+                    <span class="material-icons-outlined upload-slot-icon">add</span>
                 </div>
-            `).join('');
+            `;
+
+            const mediaItems = mediaSequences.map((media) => {
+                if (media.type === 'video') {
+                    return `
+                        <div class="media-item video" onclick="openViewer('${device}', '${media.src}', 'video')">
+                            <video src="${media.src}" preload="metadata" muted></video>
+                            <div class="video-badge">
+                                <span class="material-icons-outlined" style="font-size: 14px; color: white;">play_arrow</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="media-item" onclick="openViewer('${device}', '${media.src}', 'image')">
+                        <img src="${media.src}" alt="${media.name}" loading="lazy">
+                    </div>
+                `;
+            }).join('');
+
+            grid.innerHTML = uploadSlot + mediaItems;
         }
 
-        // Open photo viewer
-        function openViewer(device, src) {
+        // Open media viewer (image or video)
+        function openViewer(device, src, type = 'image') {
             const viewer = document.getElementById(`${device}-viewer`);
-            const img = document.getElementById(`${device}-viewer-img`);
-            img.src = src;
+            const imgEl = document.getElementById(`${device}-viewer-img`);
+            const videoEl = document.getElementById(`${device}-viewer-video`);
+
+            if (type === 'video') {
+                imgEl.style.display = 'none';
+                videoEl.style.display = 'block';
+                videoEl.src = src;
+            } else {
+                videoEl.style.display = 'none';
+                videoEl.src = '';
+                imgEl.style.display = 'block';
+                imgEl.src = src;
+            }
+
+            viewer.dataset.mediaType = type;
             viewer.classList.add('visible');
         }
 
-        // Close photo viewer
+        // Close media viewer
         function closeViewer(device) {
             const viewer = document.getElementById(`${device}-viewer`);
+            const videoEl = document.getElementById(`${device}-viewer-video`);
+            videoEl.pause();
+            videoEl.src = '';
             viewer.classList.remove('visible');
         }
+
+        // =========================================================
+        // Upload functionality
+        // =========================================================
+
+        function triggerUpload() {
+            document.getElementById('upload-input').click();
+        }
+
+        async function handleFileUpload(event) {
+            const files = event.target.files;
+            if (!files.length) return;
+            for (const file of files) {
+                await uploadFile(file);
+            }
+            event.target.value = '';
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('session_id', SESSION_ID);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/upload-media`, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    console.error('[Upload] Failed:', err.detail);
+                    return;
+                }
+
+                const result = await response.json();
+
+                // Add to mediaSequences at top (after "+" slot) and re-render grid
+                mediaSequences.unshift({
+                    name: result.filename.replace(/\.[^.]+$/, ''),
+                    src: result.url,
+                    type: result.type,
+                    uploaded: true,
+                });
+
+                renderMixedFeed('android');
+                console.log('[Upload] Added:', result.filename, result.type);
+            } catch (error) {
+                console.error('[Upload] Failed:', error);
+            }
+        }
+
+        // Drag and drop support
+        (function initDragDrop() {
+            const grid = document.getElementById('android-grid');
+            const dropZone = document.getElementById('drop-zone');
+            if (!grid || !dropZone) return;
+
+            let dragCounter = 0;
+
+            grid.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                dragCounter++;
+                dropZone.classList.remove('hidden');
+            });
+
+            grid.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dragCounter--;
+                if (dragCounter <= 0) {
+                    dragCounter = 0;
+                    dropZone.classList.add('hidden');
+                }
+            });
+
+            dropZone.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                dragCounter = 0;
+                dropZone.classList.add('hidden');
+                const files = e.dataTransfer.files;
+                for (const file of files) {
+                    await uploadFile(file);
+                }
+            });
+        })();
 
         // Add message to log
         function addMessage(text, isSystem = false) {
@@ -436,21 +574,7 @@
             log.scrollTop = log.scrollHeight;
         }
 
-        // Use photo (trigger transform action)
-        function usePhoto(device) {
-            const img = document.getElementById(`${device}-viewer-img`);
-            const photoName = img.src.split('/').pop().replace('.webp', '');
-            console.log('Transform photo:', img.src);
-            closeViewer(device);
-
-            // Add messages to log
-            addMessage(`📷 Selected: <strong>${photoName}</strong>`, true);
-
-            // Simulate pipeline messages
-            setTimeout(() => addMessage('🔍 Analyzing image with Gemini 3...'), 500);
-            setTimeout(() => addMessage('✨ Detected: Orange tabby cat, relaxed pose, warm lighting'), 1500);
-            setTimeout(() => addMessage('🎨 Generating character with Nano Banana Pro...'), 2500);
-        }
+        // useMedia removed — viewer is now view-only (no Transform action)
 
         // Device is always Android (simplified for demo)
         const DEVICE = 'android';
@@ -476,7 +600,7 @@
 
             // Update photo count in permission dialog
             document.getElementById('photo-count-text').textContent =
-                `${photoSequences.length} photos in gallery`;
+                `${mediaSequences.length} items in gallery`;
 
             // URL parameter support
             const urlParams = new URLSearchParams(window.location.search);
@@ -587,21 +711,108 @@
                 // =========================================================
 
                 case 'analyze_gallery': {
-                    const { photo_urls } = args;
+                    const { photo_urls, media_items } = args;
 
                     addTypingIndicator(device, 'analyze');
                     addTechFlow('agentic', 'Skill Invoked', 'Agent called <strong>analyze_gallery</strong>');
 
                     try {
-                        const response = await fetch(`${API_BASE}/api/analyze-gallery`, {
+                        // Use media items (with type info) if available, fall back to photos-only
+                        const requestBody = media_items
+                            ? { media: media_items }
+                            : { photos: photo_urls };
+
+                        // Use streaming endpoint for progressive updates
+                        const response = await fetch(`${API_BASE}/api/analyze-gallery-stream`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ photos: photo_urls })
+                            body: JSON.stringify(requestBody)
                         });
 
                         if (!response.ok) throw new Error(`API error: ${response.status}`);
 
-                        const result = await response.json();
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+                        let buffer = '';
+                        let result = null;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+
+                            buffer += decoder.decode(value, { stream: true });
+                            const lines = buffer.split('\n');
+                            buffer = lines.pop() || '';
+
+                            for (const line of lines) {
+                                if (!line.startsWith('data: ')) continue;
+                                try {
+                                    const event = JSON.parse(line.slice(6));
+                                    switch (event.type) {
+                                        case 'start':
+                                            // Stop the rotating spinner — we'll update manually from SSE events
+                                            if (spinnerInterval) {
+                                                clearInterval(spinnerInterval);
+                                                spinnerInterval = null;
+                                            }
+                                            updateTypingText(device, `Analyzing ${event.total} items (${event.images} images, ${event.videos} videos)...`);
+                                            break;
+                                        case 'progress':
+                                            updateTypingText(device, event.message);
+                                            break;
+                                        case 'analyzing': {
+                                            updateTypingText(device, event.message);
+                                            addTechFlow('context', '1M Context', `${event.loaded} items loaded for <strong>one-shot analysis</strong>`);
+                                            // Start thinking-phase fallback rotation (replaced when reactions arrive)
+                                            let thinkIdx = 0;
+                                            const thinkMessages = [
+                                                '🔍 Gemini is looking through your gallery...',
+                                                '👀 Spotting familiar faces and places...',
+                                                '🐱 Noticing recurring characters...',
+                                                '🎵 Listening to video audio...',
+                                                '🏠 Finding meaningful places...',
+                                                '✨ Discovering creative possibilities...',
+                                            ];
+                                            spinnerInterval = setInterval(() => {
+                                                thinkIdx = (thinkIdx + 1) % thinkMessages.length;
+                                                updateTypingText(device, thinkMessages[thinkIdx]);
+                                            }, 5000);
+                                            break;
+                                        }
+                                        case 'reaction':
+                                            // Real-time Gemini reaction — stop any rotation, show the real thing
+                                            if (spinnerInterval) {
+                                                clearInterval(spinnerInterval);
+                                                spinnerInterval = null;
+                                            }
+                                            updateTypingText(device, event.message);
+                                            addTechFlow('context', 'Gemini Reaction', event.message.slice(0, 60));
+                                            break;
+                                        case 'opening':
+                                            // Preview opening reaction while analysis continues
+                                            console.log('[Analysis] Opening:', event.text);
+                                            break;
+                                        case 'character':
+                                            console.log('[Analysis] Character:', event.data?.name_suggestion);
+                                            break;
+                                        case 'place':
+                                            console.log('[Analysis] Place:', event.data?.place_description);
+                                            break;
+                                        case 'complete':
+                                            result = event.analysis;
+                                            break;
+                                        case 'error':
+                                            throw new Error(event.message);
+                                    }
+                                } catch (parseErr) {
+                                    if (parseErr.message && !parseErr.message.includes('JSON')) throw parseErr;
+                                    console.warn('[Analysis] Failed to parse SSE event:', line);
+                                }
+                            }
+                        }
+
+                        if (!result) throw new Error('No analysis result received');
+
                         sessionState.analysisResult = result;
                         sessionState.photoUrls = photo_urls;
 
@@ -749,7 +960,8 @@
                 getSessionState: () => ({
                     analysisResult: sessionState.analysisResult,
                     canvas: sessionState.canvas,
-                    photoUrls: sessionState.photoUrls
+                    photoUrls: sessionState.photoUrls,
+                    mediaItems: sessionState.mediaItems
                 }),
                 onSkillExecute: handleSkillExecute,
                 onTextResponse: (text) => {
@@ -987,7 +1199,7 @@
 
             // Add welcome message and permission card in chat
             setTimeout(() => {
-                addChatMessage(device, 'assistant', 'Hi! ✨ Let me discover what we can create from your photos!');
+                addChatMessage(device, 'assistant', 'Hi! ✨ Let me discover what we can create from your gallery!');
             }, 400);
 
             setTimeout(() => {
@@ -1108,7 +1320,7 @@
         // Fun spinner messages (like Claude Code)
         const spinnerMessages = {
             analyze: [
-                '📸 Looking through your photos...',
+                '📸 Looking through your gallery...',
                 '👀 Spotting familiar faces...',
                 '🏠 Finding meaningful places...',
                 '✨ Discovering creative possibilities...',
@@ -1139,7 +1351,8 @@
             ]
         };
 
-        let spinnerInterval = null;
+        let spinnerInterval = null;   // Text rotation interval
+        let spinCharInterval = null;   // Spinner character animation (◐◓◑◒)
 
         // Add animated thinking indicator with rotating messages
         function addTypingIndicator(device, mode = 'think') {
@@ -1162,26 +1375,38 @@
             container.appendChild(typing);
             container.scrollTop = container.scrollHeight;
 
-            // Rotate spinner character
+            // Rotate spinner character (always runs independently)
             const spinChars = ['◐', '◓', '◑', '◒'];
             let spinIdx = 0;
 
-            // Update message and spinner
-            spinnerInterval = setInterval(() => {
+            spinCharInterval = setInterval(() => {
                 const spinner = typing.querySelector('.thinking-spinner');
-                const text = typing.querySelector('.thinking-text');
-                if (spinner && text) {
+                if (spinner) {
                     spinIdx = (spinIdx + 1) % spinChars.length;
                     spinner.textContent = spinChars[spinIdx];
-
-                    // Change message every 4 spins (every 2 seconds)
-                    if (spinIdx === 0) {
-                        msgIndex = (msgIndex + 1) % messages.length;
-                        text.textContent = messages[msgIndex];
-                    }
                 }
                 container.scrollTop = container.scrollHeight;
             }, 500);
+
+            // Rotate text messages every 2 seconds
+            spinnerInterval = setInterval(() => {
+                const text = typing.querySelector('.thinking-text');
+                if (text) {
+                    msgIndex = (msgIndex + 1) % messages.length;
+                    text.textContent = messages[msgIndex];
+                }
+            }, 2000);
+        }
+
+        // Update typing indicator text (for streaming progress)
+        function updateTypingText(device, message) {
+            const typing = document.getElementById(`${device}-typing`);
+            if (typing) {
+                const text = typing.querySelector('.thinking-text');
+                if (text) text.textContent = message;
+                const container = typing.parentElement;
+                if (container) container.scrollTop = container.scrollHeight;
+            }
         }
 
         // Remove typing indicator
@@ -1189,6 +1414,10 @@
             if (spinnerInterval) {
                 clearInterval(spinnerInterval);
                 spinnerInterval = null;
+            }
+            if (spinCharInterval) {
+                clearInterval(spinCharInterval);
+                spinCharInterval = null;
             }
             const typing = document.getElementById(`${device}-typing`);
             if (typing) typing.remove();
@@ -1217,13 +1446,13 @@
                             <span class="material-icons-outlined">photo_library</span>
                         </div>
                         <div>
-                            <div class="a2ui-card-title">Access your photos?</div>
-                            <div class="a2ui-card-subtitle">${photoSequences.length} photos in gallery</div>
+                            <div class="a2ui-card-title">Access your gallery?</div>
+                            <div class="a2ui-card-subtitle">${mediaSequences.length} items in gallery</div>
                         </div>
                     </div>
                     <div class="a2ui-card-body">
                         <p style="font-size: 13px; color: var(--on-surface-variant); margin: 0;">
-                            I'll use Gemini 3 to understand your photos and discover characters, people, and worlds you can bring to life.
+                            I'll use Gemini 3 to understand your gallery and discover characters, people, and worlds you can bring to life.
                         </p>
                     </div>
                     <div class="a2ui-card-actions">
@@ -1244,7 +1473,7 @@
 
             addChatMessage(device, 'user', 'Not now');
             setTimeout(() => {
-                addChatMessage(device, 'assistant', 'No problem! You can tap any photo in your gallery to transform it individually, or come back here anytime. 😊');
+                addChatMessage(device, 'assistant', 'No problem! You can tap any item in your gallery to transform it individually, or come back here anytime. 😊');
             }, 500);
         }
 
@@ -1260,20 +1489,26 @@
 
             addChatMessage(device, 'user', 'Allow');
 
-            // Set up photo URLs in session state for the agent to use
-            const photoUrls = photoSequences.map(p => p.src);
-            sessionState.photoUrls = photoUrls;
-            console.log('[Agent] Permission granted, photos available:', photoUrls.length);
+            // Build media items with type info for gallery analysis
+            const mediaItems = mediaSequences.map(m => ({
+                path: m.src,
+                type: m.type || 'image'
+            }));
+            sessionState.mediaItems = mediaItems;
+            sessionState.photoUrls = mediaSequences.map(p => p.src); // Keep for thumbnail lookup by index
+            const imageCount = mediaItems.filter(m => m.type === 'image').length;
+            const videoCount = mediaItems.filter(m => m.type === 'video').length;
+            console.log('[Agent] Permission granted, media available:', mediaItems.length, `(${imageCount} images, ${videoCount} videos)`);
 
             // Let the agent decide what to do (it should call analyze_gallery)
-            await agentChat(`User granted photo access. ${photoUrls.length} photos available.`);
+            await agentChat(`User granted gallery access. ${mediaItems.length} items available (${imageCount} images, ${videoCount} videos).`);
         }
 
         // Display results as conversational turns - AGENTIC FLOW
         function displayResultsInChat(device, result) {
             // Save result to session state
             sessionState.analysisResult = result;
-            sessionState.photoUrls = photoSequences.map(p => p.src); // Store photo URLs for thumbnails
+            sessionState.photoUrls = mediaSequences.map(m => m.src); // Store media URLs for thumbnails
             sessionState.chatHistory.push({ type: 'result_card', result });
             sessionState.revealStage = 0; // Track what we've shown (legacy, kept for compat)
             sessionState.itemIndex = { characters: 0, places: 0, ideas: 0 }; // Reset item indices (legacy)
@@ -1290,11 +1525,17 @@
             // This function is called DURING skill execution, before continueAfterFunctionCall().
             // Resetting here would break the function response turn order.
 
-            // A2UI: Don't show a separate opening message here
-            // The agent will include its message IN the first show_card call
+            // Show video highlights card if the gallery has videos
+            const videoItems = mediaSequences
+                .map((m, i) => ({ ...m, index: i }))
+                .filter(m => m.type === 'video');
+
+            if (videoItems.length > 0) {
+                renderVideoHighlightsCard(device, videoItems, result);
+            }
 
             // Log capability being demonstrated
-            addTechFlow('context', '1M Context', 'All photos analyzed in <strong>one request</strong> — no batching');
+            addTechFlow('context', '1M Context', 'All media analyzed in <strong>one request</strong> — no batching');
             addTechFlow('agentic', 'Agent Mode', 'Agent will decide what to show based on <strong>your reactions</strong>');
 
             // Note: Don't call agentChat here - the function response flow
@@ -1312,7 +1553,7 @@
                 const preview = result.life_characters[0];
                 const hint = preview.type === 'pet' ? '🐱' : '👤';
                 renderRevealPrompt(device,
-                    `I noticed ${count} recurring presence${count > 1 ? 's' : ''} in your photos... ${hint}`,
+                    `I noticed ${count} recurring presence${count > 1 ? 's' : ''} in your gallery... ${hint}`,
                     'Show me who',
                     () => revealCharacters(device)
                 );
@@ -1378,7 +1619,7 @@
             const idx = sessionState.itemIndex.characters;
 
             if (idx === 0) {
-                addTechFlow('multimodal', 'Cross-Image Reasoning', 'Recognized <strong>same subjects</strong> across multiple photos');
+                addTechFlow('multimodal', 'Cross-Image Reasoning', 'Recognized <strong>same subjects</strong> across multiple items');
             }
 
             if (idx < characters.length) {
@@ -1468,6 +1709,20 @@
             };
         }
 
+        // Helper: check if a URL is a video file
+        function isVideoUrl(url) {
+            return url && /\.(mp4|webm|mov)$/i.test(url);
+        }
+
+        // Build thumbnail HTML — renders <img> for images, <video> for videos
+        function buildMediaThumb(url, alt, className = 'card-thumb') {
+            if (!url) return '';
+            if (isVideoUrl(url)) {
+                return `<video src="${url}" class="${className}" muted autoplay loop playsinline preload="metadata" style="object-fit: cover;"></video>`;
+            }
+            return `<img src="${url}" class="${className}" alt="${alt || ''}">`;
+        }
+
         // Single character card - A2UI: message + image + reactions + actions
         function renderSingleCharacterCard(device, char, index, showNext, message) {
             const container = document.getElementById(`${device}-chat-messages`);
@@ -1480,13 +1735,17 @@
             const cardId = `char-card-${index}`;
             const subjectId = `char_${index}`;
 
-            // Use image_indices directly from Gemini 3 - first index is the best photo
-            const bestPhotoIdx = char.image_indices?.[0];
+            // Use only photo indices for character cards (videos have their own card)
+            const allIndices = char.image_indices || [];
+            const photoIndices = allIndices.filter(i => !isVideoUrl(sessionState.photoUrls?.[i]));
+
+            // Best photo for main thumbnail
+            const bestPhotoIdx = photoIndices[0] ?? allIndices[0];
             const thumbUrl = (bestPhotoIdx !== undefined && sessionState.photoUrls?.[bestPhotoIdx])
                 ? sessionState.photoUrls[bestPhotoIdx]
                 : null;
-            const thumbHtml = thumbUrl
-                ? `<img src="${thumbUrl}" class="card-thumb" alt="${displayName}">`
+            const thumbHtml = (thumbUrl && !isVideoUrl(thumbUrl))
+                ? buildMediaThumb(thumbUrl, displayName)
                 : '';
 
             // A2UI: Short message as card header
@@ -1504,7 +1763,7 @@
                     <div style="display: flex; align-items: center; gap: 6px; margin: 6px 0;">
                         <div style="flex: 1;">
                             <div style="font-weight: 600; font-size: 14px;">${displayName}</div>
-                            <div style="font-size: 11px; color: var(--on-surface-variant);">${char.appearances} photos</div>
+                            <div style="font-size: 11px; color: var(--on-surface-variant);">${char.appearances} appearances</div>
                         </div>
                         <div class="reactions">
                             <button class="reaction-btn love" id="love-${cardId}" title="Love it!"></button>
@@ -1566,13 +1825,17 @@
             const subjectId = `place_${index}`;
             const name = place.place_description;
 
-            // Use image_indices directly from Gemini 3 - first index is the best photo
-            const bestPhotoIdx = place.image_indices?.[0];
+            // Use only photo indices for place cards (videos have their own card)
+            const allIndices = place.image_indices || [];
+            const photoIndices = allIndices.filter(i => !isVideoUrl(sessionState.photoUrls?.[i]));
+
+            // Best photo for main thumbnail
+            const bestPhotoIdx = photoIndices[0] ?? allIndices[0];
             const thumbUrl = (bestPhotoIdx !== undefined && sessionState.photoUrls?.[bestPhotoIdx])
                 ? sessionState.photoUrls[bestPhotoIdx]
                 : null;
-            const thumbHtml = thumbUrl
-                ? `<img src="${thumbUrl}" class="card-thumb" alt="${name}">`
+            const thumbHtml = (thumbUrl && !isVideoUrl(thumbUrl))
+                ? buildMediaThumb(thumbUrl, name)
                 : '';
 
             // A2UI: Message goes IN the card header
@@ -1615,6 +1878,53 @@
                     nextBtn.onclick = () => handleAgenticNext(subjectId, name);
                 }
             }
+        }
+
+        // Video highlights card — shows all videos from the gallery with Gemini's observations
+        function renderVideoHighlightsCard(device, videoItems, analysisResult) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            const card = document.createElement('div');
+            card.className = 'chat-msg assistant';
+
+            // Try to find per-video details from analysis
+            const mediaDetails = analysisResult.media_details || analysisResult.image_details || [];
+
+            const videoClipsHtml = videoItems.map(v => {
+                const videoUrl = sessionState.photoUrls[v.index];
+                const detail = mediaDetails.find(d => d.index === v.index);
+                const caption = detail
+                    ? detail.emotional_read || detail.primary_subject || ''
+                    : '';
+
+                return `
+                    <div style="margin-bottom: 10px;">
+                        <div style="position: relative; border-radius: 10px; overflow: hidden;">
+                            <video src="${videoUrl}" style="width: 100%; border-radius: 10px; max-height: 180px; object-fit: cover;"
+                                   muted autoplay loop playsinline preload="metadata"></video>
+                            <div style="position: absolute; bottom: 6px; left: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 11px; padding: 3px 8px; border-radius: 6px;">
+                                📹 ${v.name}
+                            </div>
+                        </div>
+                        ${caption ? `<div style="font-size: 12px; color: var(--on-surface-variant); margin-top: 4px; line-height: 1.4;">${caption}</div>` : ''}
+                    </div>`;
+            }).join('');
+
+            card.innerHTML = `
+                <div class="chat-msg-bubble" style="padding: 10px 12px;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                        <span style="font-size: 18px;">🎬</span>
+                        <div>
+                            <div style="font-weight: 600; font-size: 14px;">Video Moments</div>
+                            <div style="font-size: 11px; color: var(--on-surface-variant);">${videoItems.length} clip${videoItems.length > 1 ? 's' : ''} from your gallery</div>
+                        </div>
+                    </div>
+                    ${videoClipsHtml}
+                </div>
+            `;
+
+            container.appendChild(card);
+            container.scrollTop = container.scrollHeight;
+            addTechFlow('context', 'Video Understanding', `${videoItems.length} videos analyzed with <strong>audio + visual</strong>`);
         }
 
         // Single idea card - A2UI: message + content + actions all in one widget
@@ -1821,7 +2131,7 @@
                             <span class="chip-emoji">${emoji}</span>
                             <div class="chip-info">
                                 <div class="chip-name">${shortName}</div>
-                                <div class="chip-count">${char.appearances} photos</div>
+                                <div class="chip-count">${char.appearances} appearances</div>
                             </div>
                         </div>
                         <div class="chip-detail">${char.what_you_notice}</div>
@@ -2080,8 +2390,8 @@
                 removeTypingIndicator(activeDevice);
                 addChatMessage(activeDevice, 'assistant',
                     type === 'character'
-                        ? 'Great choice! 🐱 Tap the Photos tab and select any pet photo!'
-                        : 'Perfect! 🌃 Tap the Photos tab and select any landscape!'
+                        ? 'Great choice! 🐱 Tap the Gallery tab and select any pet photo!'
+                        : 'Perfect! 🌃 Tap the Gallery tab and select any landscape!'
                 );
             }, 1500);
         }
@@ -2264,14 +2574,20 @@
                 ? `<div style="font-size: 13px; color: var(--on-surface); margin-bottom: 8px; line-height: 1.4;">${message}</div>`
                 : '';
 
-            // Get best photo for preview
-            const bestPhotoIdx = char.image_indices?.[0];
-            const thumbUrl = (bestPhotoIdx !== undefined && sessionState.photoUrls?.[bestPhotoIdx])
-                ? sessionState.photoUrls[bestPhotoIdx]
+            // Get best photo for preview (prefer image over video)
+            const allIndices = char.image_indices || [];
+            const photoOnly = allIndices.filter(i => !isVideoUrl(sessionState.photoUrls?.[i]));
+            const bestIdx = photoOnly[0] ?? allIndices[0];
+            const thumbUrl = (bestIdx !== undefined && sessionState.photoUrls?.[bestIdx])
+                ? sessionState.photoUrls[bestIdx]
                 : null;
-            const thumbHtml = thumbUrl
-                ? `<img src="${thumbUrl}" class="card-thumb" alt="${charName}">`
-                : '';
+            const thumbHtml = buildMediaThumb(thumbUrl, charName);
+
+            const photoCount = photoOnly.length;
+            const videoCount = allIndices.length - photoCount;
+            const refText = videoCount > 0
+                ? `${photoCount} photos + ${videoCount} video clip${videoCount > 1 ? 's' : ''}`
+                : `${photoCount} reference images`;
 
             card.innerHTML = `
                 <div class="chat-msg-bubble" style="padding: 10px 12px;">
@@ -2282,7 +2598,7 @@
                     </div>
                     ${thumbHtml}
                     <div style="font-size: 12px; color: var(--on-surface-variant); line-height: 1.5; margin-bottom: 8px;">
-                        ${char.image_indices.length} reference photos available
+                        ${refText} available
                     </div>
                     <div class="card-actions">
                         <button class="action-btn primary" onclick="openBottomSheet('${device}', ${charIndex})">
@@ -2357,11 +2673,13 @@
             const result = sessionState.analysisResult;
             const char = result?.life_characters?.[makeAnimeState.characterIndex];
             const grid = document.getElementById(`${device}-ref-grid`);
-            const photoIndices = char?.image_indices || [];
+            const allIndices = char?.image_indices || [];
+            // Filter to actual images only — videos can't be used as character reference photos
+            const photoIndices = allIndices.filter(idx => !isVideoUrl(sessionState.photoUrls?.[idx]));
 
             grid.innerHTML = photoIndices.map(idx => `
                 <div class="ref-photo" onclick="toggleRefPhoto('${device}', this, ${idx})" data-index="${idx}">
-                    <img src="${sessionState.photoUrls[idx]}" alt="Photo ${idx + 1}">
+                    <img src="${sessionState.photoUrls[idx]}" alt="Image ${idx + 1}">
                 </div>
             `).join('');
 
@@ -2561,7 +2879,7 @@
                         </button>
                         <button class="action-button" onclick="continueExploring()">
                             <span class="material-icons-outlined" style="font-size: 18px;">photo_library</span>
-                            Explore More Photos
+                            Explore Gallery
                         </button>
                     </div>
                 </div>
@@ -2582,7 +2900,7 @@
          * Continue exploring gallery
          */
         async function continueExploring() {
-            await agentChat(`User clicked "Explore More Photos".`);
+            await agentChat(`User clicked "Explore Gallery".`);
         }
 
         /**

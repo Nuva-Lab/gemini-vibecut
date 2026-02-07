@@ -93,7 +93,13 @@ curl -s http://localhost:8000/api/debug/logs/list
 
 ### Wrong Photos Shown
 **Check:** `image_indices` in analysis result
-**Cause:** Missing `[Photo X]` labels in gallery analysis
+**Cause:** Media labels without filenames. Fixed by using `[Media X: filename]` labels.
+**Note:** Videos are excluded from character/place cards (they get their own "Video Moments" card).
+
+### show_card(creation_suggestion) Shows Nothing
+**Check:** Logs show `show_card` with `card_type: creation_suggestion` but UI is blank
+**Cause:** `brain.js` generic handler was dropping `subject_id` — only subject cards passed it through.
+**Fix:** Generic handler now passes `{ card_type, subject_id, content, message }`.
 
 ### Agent Skips analyze_gallery
 **Check:** Logs show `show_card` called before `analyze_gallery`
@@ -111,7 +117,7 @@ curl -s http://localhost:8000/api/debug/logs/list
 
 | Skill | Purpose |
 |-------|---------|
-| `analyze_gallery` | Analyze photos, detect characters/places |
+| `analyze_gallery` | Analyze mixed media gallery (photos + videos), detect characters/places |
 | `show_card` | Display cards (subject, creation_suggestion, summary) |
 | `create_character` | Generate anime character from reference photos |
 | `ask_story_question` | Ask user a question with 2 options to build story |

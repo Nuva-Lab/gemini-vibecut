@@ -1,6 +1,7 @@
 # Gemini VibeCut — Developer Guide
 
 > Turn your sleeping digital assets into personalized content.
+> This repo will be public in github for demostration and playing around.
 
 **Core thesis:** Human content at the core. Human directed. AI assisted.
 
@@ -72,6 +73,9 @@ curl -s http://localhost:8000/api/debug/logs?lines=50
 ### Available Endpoints
 | Endpoint | Purpose |
 |----------|---------|
+| `POST /api/upload-media` | Upload images/videos (session-scoped, 10MB img / 50MB vid) |
+| `POST /api/analyze-gallery` | Analyze mixed media gallery (images inline, videos via Files API) |
+| `POST /api/analyze-gallery-stream` | Streaming analysis with real-time Gemini reactions via SSE |
 | `GET /api/debug/session` | Full session state (context, history, characters) |
 | `GET /api/debug/session/summary` | Quick snapshot of current state |
 | `GET /api/debug/logs?lines=N` | Recent N lines of server logs |
@@ -125,6 +129,7 @@ Each agent turn = ONE rich widget that combines message + actions.
 | API | AI Studio | Never use Vertex AI |
 
 ```python
+# Standard (agent chat, with thinking)
 response = client.models.generate_content(
     model=GEMINI_MODEL,
     contents=contents,
@@ -133,6 +138,24 @@ response = client.models.generate_content(
         thinking_config=types.ThinkingConfig(thinking_level="low"),
     )
 )
+
+# Streaming (gallery analysis — reactions before JSON)
+for chunk in client.models.generate_content_stream(
+    model=GEMINI_MODEL,
+    contents=media_parts + [prompt],
+    config=types.GenerateContentConfig(temperature=1.0),
+):
+    # Parse REACT: lines and ```json blocks incrementally
+```
+
+### 8. Media Labels for Accurate Indexing
+Include filenames in media labels so Gemini can cross-reference:
+```python
+# ✅ RIGHT: Filename helps Gemini verify indices
+types.Part.from_text(text=f"[Media {idx}: {filename}]")
+
+# ❌ WRONG: Just a number, easy to misindex with 30+ items
+types.Part.from_text(text=f"[Media {idx}]")
 ```
 
 ### 7. Per-Session Isolation
@@ -196,7 +219,8 @@ AUDIO: Soft ambient sounds. NO speech, NO music.""",
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  1. UNDERSTAND — Gemini 3 Flash              skills/understand_image/   │
-│     User uploads photos → gallery analysis                              │
+│     User uploads photos + videos → gallery analysis                     │
+│     Images: inline bytes. Videos: Gemini Files API (upload→poll→uri)    │
 │     Detects: pets, people, scenes, moods, creative sparks               │
 └─────────────────────────────────────────────────────────────────────────┘
          │
@@ -268,7 +292,9 @@ AUDIO: Soft ambient sounds. NO speech, NO music.""",
 
 | Component | Skill | Status |
 |-----------|-------|--------|
-| Gallery analysis | `understand_image/` | ✅ |
+| Gallery analysis (photos + videos) | `understand_image/` | ✅ |
+| Media upload (drag-drop + picker) | `api_server.py /api/upload-media` | ✅ |
+| Video understanding (Gemini Files API) | `api_server.py /api/analyze-gallery` | ✅ |
 | Character sheets | `generate_character/` | ✅ |
 | Manga panels | `generate_manga/` | ✅ |
 | Video clips | `generate_video/` | ✅ |
@@ -316,8 +342,8 @@ python tests/test_music_pipeline.py --lyrics-only
 **Symptom:** Module won't load, `AgentBrain` is null
 **Fix:** No backticks inside template literals
 
-### 2. Gallery Analysis Wrong Photo Indices
-**Fix:** Add `[Photo X]` labels before each image in API request
+### 2. Gallery Analysis Wrong Media Indices
+**Fix:** Use `[Media X: filename]` labels (with filename!) before each item. Gemini uses filenames to cross-reference indices. Was `[Photo X]` → `[Media X]` → `[Media X: filename]` through iterations.
 
 ### 3. Manga Panels Mixed B&W and Color
 **Fix:** Explicit "FULL COLOR" in style prompts
@@ -341,6 +367,26 @@ python tests/test_music_pipeline.py --lyrics-only
 **Root cause:** 16s × 30fps = 480 frames, but Remotion range is 0-479.
 **Fix:** `duration_frames - 1` in `render_captions.py`.
 
+### 9. Streaming JSON Parse Failure ("Extra data")
+**Root cause:** `generate_content_stream` with reactions prompt produces JSON with trailing content after closing brace.
+**Fix:** Use `json.JSONDecoder().raw_decode()` instead of `json.loads()`. Falls back to brace-balanced extraction via `_extract_json_from_text()`.
+
+### 10. Videos Sent as Images (mediaItems not in getSessionState)
+**Root cause:** `brain.js` used `sessionState.mediaItems` but `getSessionState()` didn't return it — all videos fell back to `type: 'image'`.
+**Fix:** Added `mediaItems: sessionState.mediaItems` to `getSessionState()` return object.
+
+### 11. Spinner Overwrites Streaming Progress
+**Root cause:** `addTypingIndicator('analyze')` ran a `setInterval` that cycled hardcoded messages, overwriting real SSE updates.
+**Fix:** Split into `spinCharInterval` (◐◓◑◒ animation) and `spinnerInterval` (text rotation). Stop text rotation on first SSE event; spinner character keeps running.
+
+### 12. show_card(creation_suggestion) Silently Fails
+**Root cause:** `brain.js` generic show_card handler dropped `subject_id` — only passed `{ card_type, content, message }`.
+**Fix:** Pass `subject_id` through in generic handler: `{ card_type, subject_id, content, message }`.
+
+### 13. Gemini Ignores Video Indices in Structured Output
+**Root cause:** Even with `[Media X]` labels and explicit instructions, Gemini consistently excludes video indices from `media_indices` arrays in characters/places.
+**Workaround:** Videos get their own dedicated "Video Moments" card instead of being forced into character/place cards. Character/place cards are image-only (clean grouping). Including filenames in labels (`[Media X: filename]`) helps index accuracy overall.
+
 ---
 
 ## Roadmap
@@ -355,11 +401,19 @@ python tests/test_music_pipeline.py --lyrics-only
 - [x] Full pipeline orchestrator (dialogue + music modes)
 - [x] Per-session isolation (multi-user support)
 - [x] Open source cleanup
+- [x] Rename Photos → Gallery (supports mixed media)
+- [x] Media upload (drag-and-drop + file picker, images + videos)
+- [x] Video understanding via Gemini Files API (upload → poll → analyze)
+- [x] Demo video library (3 representative clips: cat, family, Tokyo street)
+- [x] Streaming analysis with real-time Gemini reactions (`generate_content_stream`)
+- [x] Video Moments card (dedicated video display, separate from image grouping)
+- [x] Streaming progress UX (upload progress → Gemini reactions → analysis)
+- [x] Agent never ends passively (always pushes toward next creative step)
+- [x] Filename-based media labels for accurate Gemini indexing
 
 ### Next
-- [ ] User photo upload (currently demo photos only)
-- [ ] Video understanding and processing
-- [ ] End-to-end web UI flow
+- [ ] End-to-end web UI flow (upload → analyze → character → manga → video in one session)
+- [ ] Video keyframe extraction (use Gemini to identify best frame → ffmpeg extract → character reference)
 - [ ] Production deployment (Cloudflare Pages + API server)
 - [ ] Demo video recording
 
