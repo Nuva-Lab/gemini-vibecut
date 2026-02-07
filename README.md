@@ -47,7 +47,7 @@ Photo Gallery
 
 ```bash
 # Clone
-git clone https://github.com/anthropics/gemini-vibecut.git
+git clone https://github.com/Nuva-Lab/gemini-vibecut.git
 cd gemini-vibecut
 
 # Python dependencies
