@@ -410,6 +410,20 @@
             `;
 
             const mediaItems = mediaSequences.map((media) => {
+                if (media.uploading) {
+                    // Placeholder with local preview + spinner overlay
+                    const inner = media.type === 'video'
+                        ? `<video src="${media.src}" preload="metadata" muted></video>`
+                        : `<img src="${media.src}" alt="${media.name}" loading="eager">`;
+                    return `
+                        <div class="media-item uploading${media.type === 'video' ? ' video' : ''}">
+                            ${inner}
+                            <div class="upload-progress-overlay">
+                                <div class="upload-spinner"></div>
+                            </div>
+                        </div>
+                    `;
+                }
                 if (media.type === 'video') {
                     return `
                         <div class="media-item video" onclick="openViewer('${device}', '${media.src}', 'video')">
@@ -471,13 +485,26 @@
         async function handleFileUpload(event) {
             const files = event.target.files;
             if (!files.length) return;
-            for (const file of files) {
-                await uploadFile(file);
-            }
+            // Upload all files in parallel so all placeholders appear immediately
+            await Promise.all(Array.from(files).map(file => uploadFile(file)));
             event.target.value = '';
         }
 
         async function uploadFile(file) {
+            // Immediately reserve a spot with a local preview + spinner
+            const placeholderId = 'uploading-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+            const previewUrl = URL.createObjectURL(file);
+            const fileType = file.type.startsWith('video/') ? 'video' : 'image';
+
+            mediaSequences.unshift({
+                name: file.name.replace(/\.[^.]+$/, ''),
+                src: previewUrl,
+                type: fileType,
+                uploading: true,
+                _placeholderId: placeholderId,
+            });
+            renderMixedFeed('android');
+
             const formData = new FormData();
             formData.append('file', file);
             formData.append('session_id', SESSION_ID);
@@ -491,23 +518,37 @@
                 if (!response.ok) {
                     const err = await response.json();
                     console.error('[Upload] Failed:', err.detail);
+                    // Remove placeholder on failure
+                    const idx = mediaSequences.findIndex(m => m._placeholderId === placeholderId);
+                    if (idx !== -1) mediaSequences.splice(idx, 1);
+                    URL.revokeObjectURL(previewUrl);
+                    renderMixedFeed('android');
                     return;
                 }
 
                 const result = await response.json();
 
-                // Add to mediaSequences at top (after "+" slot) and re-render grid
-                mediaSequences.unshift({
-                    name: result.filename.replace(/\.[^.]+$/, ''),
-                    src: result.url,
-                    type: result.type,
-                    uploaded: true,
-                });
+                // Replace placeholder with real uploaded media
+                const idx = mediaSequences.findIndex(m => m._placeholderId === placeholderId);
+                if (idx !== -1) {
+                    mediaSequences[idx] = {
+                        name: result.filename.replace(/\.[^.]+$/, ''),
+                        src: result.url,
+                        type: result.type,
+                        uploaded: true,
+                    };
+                }
+                URL.revokeObjectURL(previewUrl);
 
                 renderMixedFeed('android');
                 console.log('[Upload] Added:', result.filename, result.type);
             } catch (error) {
                 console.error('[Upload] Failed:', error);
+                // Remove placeholder on error
+                const idx = mediaSequences.findIndex(m => m._placeholderId === placeholderId);
+                if (idx !== -1) mediaSequences.splice(idx, 1);
+                URL.revokeObjectURL(previewUrl);
+                renderMixedFeed('android');
             }
         }
 
@@ -543,9 +584,7 @@
                 dragCounter = 0;
                 dropZone.classList.add('hidden');
                 const files = e.dataTransfer.files;
-                for (const file of files) {
-                    await uploadFile(file);
-                }
+                await Promise.all(Array.from(files).map(file => uploadFile(file)));
             });
         })();
 

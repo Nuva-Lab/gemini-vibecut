@@ -304,6 +304,39 @@ body {
     color: #1a73e8;
 }
 
+/* Upload-in-progress placeholder */
+.media-item.uploading {
+    pointer-events: none;
+}
+
+.media-item.uploading img,
+.media-item.uploading video {
+    opacity: 0.35;
+    filter: blur(2px);
+}
+
+.upload-progress-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+}
+
+.upload-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #1a73e8;
+    border-radius: 50%;
+    animation: upload-spin 0.8s linear infinite;
+}
+
+@keyframes upload-spin {
+    to { transform: rotate(360deg); }
+}
+
 /* Video play badge overlay */
 .video-badge {
     position: absolute;
