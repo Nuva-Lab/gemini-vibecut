@@ -7,6 +7,28 @@
 
 ---
 
+## Dev Environment (EC2)
+
+All Python work uses **uv** with the `whatif` venv. Never use system pip or raw python.
+
+```bash
+# Python — always use the whatif venv
+~/whatif/bin/python          # interpreter
+~/.local/bin/uv pip install --python ~/whatif/bin/python <pkg>   # install deps
+~/.local/bin/uv pip install --python ~/whatif/bin/python -r requirements.txt  # sync all
+
+# Start server
+~/whatif/bin/python ui/api_server.py
+
+# Add new deps: install + add to requirements.txt
+~/.local/bin/uv pip install --python ~/whatif/bin/python <pkg>
+# Then add the package to requirements.txt manually
+```
+
+See `deploy/SETUP.md` for full EC2 provisioning details.
+
+---
+
 ## Technical Stack
 
 | Layer | Model | Use |
@@ -40,13 +62,14 @@ The entire pipeline runs on **cloud APIs + CPU**. No GPU needed.
 ```bash
 pkill -f "python.*api_server" 2>/dev/null
 sleep 1
-python ui/api_server.py &
+~/whatif/bin/python ui/api_server.py &
 sleep 2
 curl -s http://localhost:8000/health
 ```
 
 **Expected:** `{"status":"healthy","model":"gemini-3-flash-preview"}`
-**Demo:** http://localhost:8000/
+**Demo (local):** http://localhost:8000/
+**Live:** https://vibecut.whatif.art
 
 ---
 
@@ -452,10 +475,16 @@ python tests/test_music_pipeline.py --lyrics-only
 - [x] Gemini-generated per-section local styles for ElevenLabs arrangement control
 - [x] Gemini Pro character description for manga consistency (text + visual dual anchor)
 
+### Done (cont.)
+- [x] Production deployment: EC2 + Cloudflare Tunnel (https://vibecut.whatif.art)
+- [x] cloudflared v2026.2.0 installed, named tunnel `vibecut` with 4x QUIC connections
+- [x] systemd services for both vibecut (FastAPI) and cloudflared (tunnel), enabled + auto-restart
+- [x] WAF skip rule for `vibecut.whatif.art` (Bot Fight Mode stays active on rest of whatif.art)
+- [x] DNS CNAME `vibecut.whatif.art` → tunnel, TLS via Cloudflare edge (*.whatif.art wildcard cert)
+
 ### Next
 - [ ] End-to-end web UI flow (upload → analyze → character → manga → video in one session)
 - [ ] Video keyframe extraction (use Gemini to identify best frame → ffmpeg extract → character reference)
-- [ ] Production deployment (Cloudflare Pages + API server)
 - [ ] Demo video recording
 
 ---

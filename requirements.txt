@@ -16,9 +16,12 @@ Pillow>=10.0.0
 # API Server
 fastapi>=0.109.0
 uvicorn>=0.27.0
+python-multipart>=0.0.20
 
 # Video/Audio composition
 ffmpeg-python>=0.2.0
+numpy>=1.24.0
+soundfile>=0.12.0
 
 # Async support
 aiohttp>=3.9.0
@@ -27,6 +30,8 @@ aiofiles>=23.0.0
 # Utilities
 tenacity>=8.0.0
 pyyaml>=6.0.0
+requests>=2.31.0
+jieba>=0.42.0
 
 # Music generation
 elevenlabs>=2.34.0
