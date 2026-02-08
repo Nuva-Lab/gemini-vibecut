@@ -204,14 +204,6 @@
                     <iframe id="android-iframe" class="hidden"></iframe>
                 </div>
             </div>
-
-            <!-- URL Bar -->
-            <div class="url-bar">
-                <div class="url-input-group">
-                    <input type="text" id="embed-url" placeholder="Enter Gradio URL...">
-                    <button onclick="embedUrl()">Connect</button>
-                </div>
-            </div>
         </aside>
 
         <!-- Activity Panel - Behind the Scene Insights -->
@@ -618,19 +610,6 @@
         // Device is always Android (simplified for demo)
         const DEVICE = 'android';
 
-        // Embed URL (for Gradio demo)
-        function embedUrl() {
-            const url = document.getElementById('embed-url').value;
-            if (!url) return;
-
-            // Hide photos app
-            document.getElementById('android-photos').classList.add('hidden');
-
-            // Show and set iframe
-            const androidIframe = document.getElementById('android-iframe');
-            androidIframe.classList.remove('hidden');
-            androidIframe.src = url;
-        }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
