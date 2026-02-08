@@ -1,8 +1,9 @@
 """
-Video Output Verification — ffprobe-based checks for pipeline output.
+Video Output Verification — ffprobe + Gemini visual checks for pipeline output.
 
-Catches corrupt concats, resolution mismatches, missing audio, and
-duration drift before reporting success to the user.
+Two verification layers:
+1. ffprobe: resolution, duration, audio streams, file size (fast, deterministic)
+2. Gemini Pro: visual content check — captions visible, character consistency (async, AI)
 """
 
 import json
@@ -13,6 +14,133 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Gemini visual verification
+# ---------------------------------------------------------------------------
+
+async def verify_video_with_gemini(
+    path: Path,
+    expect_captions: bool = True,
+    expect_characters: list[str] = None,
+) -> dict:
+    """
+    Use Gemini Pro to visually verify a video's content.
+
+    Uploads the video via Files API, asks Gemini to check for:
+    - Rolling captions/subtitles visible on screen
+    - Character consistency (if character names provided)
+    - Overall quality issues (black frames, corruption)
+
+    Returns dict with:
+        passed: bool
+        captions_visible: bool
+        details: str (Gemini's analysis)
+        failures: list[str]
+    """
+    from google import genai
+    from google.genai import types
+    from config import GOOGLE_API_KEY, GEMINI_PRO_MODEL
+
+    path = Path(path)
+    if not path.exists():
+        return {"passed": False, "captions_visible": False, "details": "", "failures": [f"File not found: {path}"]}
+
+    client = genai.Client(api_key=GOOGLE_API_KEY)
+
+    # Upload video to Gemini Files API
+    logger.info(f"[GeminiVerify] Uploading {path.name} for visual verification")
+    uploaded = client.files.upload(file=path)
+
+    # Poll until processing is done
+    import time
+    for _ in range(30):
+        status = client.files.get(name=uploaded.name)
+        if status.state.name == "ACTIVE":
+            break
+        time.sleep(2)
+    else:
+        return {"passed": False, "captions_visible": False, "details": "File processing timed out", "failures": ["Gemini file processing timeout"]}
+
+    # Build verification prompt
+    checks = []
+    if expect_captions:
+        checks.append("1. CAPTIONS: Are there text captions/subtitles/lyrics visible at the bottom of the video? Describe what text you see and when.")
+    if expect_characters:
+        names = ", ".join(expect_characters)
+        checks.append(f"2. CHARACTERS: Do you see {names} consistently throughout? Any character breaks or replacements?")
+    checks.append("3. QUALITY: Any black frames, visual corruption, or obvious rendering artifacts?")
+
+    prompt = f"""You are a QA reviewer for an animated music video. Watch this video carefully and verify:
+
+{chr(10).join(checks)}
+
+Respond in this exact JSON format:
+```json
+{{
+  "captions_visible": true/false,
+  "caption_text_samples": ["first line you see", "second line"],
+  "character_consistent": true/false/null,
+  "quality_issues": [],
+  "summary": "One sentence overall assessment"
+}}
+```"""
+
+    try:
+        response = client.models.generate_content(
+            model=GEMINI_PRO_MODEL,
+            contents=[
+                types.Content(parts=[
+                    types.Part.from_uri(file_uri=status.uri, mime_type=status.mime_type),
+                    types.Part.from_text(text=prompt),
+                ]),
+            ],
+            config=types.GenerateContentConfig(temperature=0.2),
+        )
+
+        text = response.text.strip()
+        # Extract JSON from response
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+
+        result = json.loads(text)
+
+        failures = []
+        if expect_captions and not result.get("captions_visible", False):
+            failures.append("Captions NOT visible in video (expected rolling lyrics)")
+        if result.get("quality_issues"):
+            failures.extend(result["quality_issues"])
+
+        passed = len(failures) == 0
+        logger.info(f"[GeminiVerify] {'PASSED' if passed else 'FAILED'}: {result.get('summary', '')}")
+        if failures:
+            logger.warning(f"[GeminiVerify] Failures: {failures}")
+
+        return {
+            "passed": passed,
+            "captions_visible": result.get("captions_visible", False),
+            "details": result.get("summary", ""),
+            "caption_samples": result.get("caption_text_samples", []),
+            "failures": failures,
+        }
+
+    except Exception as e:
+        logger.warning(f"[GeminiVerify] Gemini verification failed: {e}")
+        return {"passed": False, "captions_visible": False, "details": str(e), "failures": [f"Gemini error: {e}"]}
+    finally:
+        # Clean up uploaded file
+        try:
+            client.files.delete(name=uploaded.name)
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# ffprobe verification (existing)
+# ---------------------------------------------------------------------------
 
 
 @dataclass

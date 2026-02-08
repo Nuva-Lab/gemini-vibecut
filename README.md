@@ -29,7 +29,7 @@ Each step produces a shareable artifact. You own every character, every story.
 | Image Gen | `gemini-3-pro-image-preview` | Character sheets, manga panels |
 | Video Gen | `veo-3.1-fast-generate-preview` | 4s animated clips from manga panels |
 | Music | ElevenLabs | Background songs with vocals + lyrics |
-| Captions | Remotion | Karaoke-style rolling lyrics overlay |
+| Captions | FFmpeg ASS | Karaoke-style rolling lyrics (white→gold) |
 
 ```
 Photo + Video Gallery
@@ -37,7 +37,7 @@ Photo + Video Gallery
     -> Gemini 3 Pro Image (character + manga)
     -> Veo 3.1 (animate)
     -> ElevenLabs (music + vocals)
-    -> Remotion (captions)
+    -> FFmpeg ASS (karaoke captions)
     -> Final 16s video with music
 ```
 
@@ -52,9 +52,6 @@ cd gemini-vibecut
 
 # Python dependencies
 pip install -r requirements.txt
-
-# Node dependencies (for Remotion captions)
-cd remotion && npm install && cd ..
 
 # Environment
 cp .env.example .env
@@ -88,11 +85,11 @@ gemini-vibecut/
 │   ├── generate_music/        # ElevenLabs music with lyrics
 │   ├── generate_animated_story/ # Full pipeline orchestrator
 │   ├── compose_final/         # FFmpeg video + audio composition
-│   ├── render_captions/       # Remotion karaoke captions
+│   ├── render_captions/       # FFmpeg ASS karaoke captions
 │   ├── align_captions/        # Word-level timestamp alignment
 │   ├── understand_image/      # Gemini image analysis
-│   └── verify_output.py       # ffprobe output validation
-├── remotion/                  # Remotion project (caption rendering)
+│   └── verify_output.py       # ffprobe + Gemini Pro visual verification
+├── remotion/                  # Remotion project (legacy, kept for complex motion graphics)
 ├── models/                    # Data models (Character, Project, World)
 ├── config.py                  # Configuration (env vars, model IDs)
 ├── assets/
@@ -154,8 +151,8 @@ See `.env.example` for all options.
 4 Manga Panels
     -> Veo 3.1 minimal motion (4s each, subtle animation)
     -> ElevenLabs music (with Gemini-generated lyrics)
-    -> Remotion karaoke captions (panel-locked)
-    -> FFmpeg compose
+    -> FFmpeg ASS karaoke captions (panel-locked, white→gold)
+    -> FFmpeg compose + scale to 1080x1920
     -> 16s final video (1080x1920, h264+aac)
 ```
 
@@ -193,4 +190,4 @@ Powered by:
 - [Gemini 3](https://ai.google.dev/gemini-api/docs) (understanding + image generation)
 - [Veo 3.1](https://ai.google.dev/gemini-api/docs/video) (video generation)
 - [ElevenLabs](https://elevenlabs.io/docs/overview/capabilities/music) (music generation)
-- [Remotion](https://www.remotion.dev/) (caption rendering)
+- [FFmpeg](https://ffmpeg.org/) (composition, ASS karaoke captions)

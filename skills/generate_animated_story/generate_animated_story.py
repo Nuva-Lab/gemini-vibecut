@@ -68,7 +68,7 @@ class AnimatedStoryGenerator:
     3. Align audio → word timestamps (Qwen3-ForcedAligner)
     4. Generate video clips (Veo 3.1, 4s each)
     5. Merge audio + video per clip
-    6. Render karaoke captions (Remotion)
+    6. Render karaoke captions (FFmpeg ASS)
     7. Concatenate into final video
 
     For N panels, generates N clips (each 4 seconds).
@@ -438,7 +438,7 @@ class AnimatedStoryGenerator:
         3. Align audio to get word timestamps
         4. Generate video clips (Veo 3.1)
         5. Merge audio + video per clip
-        6. Render karaoke captions (Remotion)
+        6. Render karaoke captions (FFmpeg ASS)
         7. Concatenate into final video
 
         Args:
@@ -673,7 +673,7 @@ class AnimatedStoryGenerator:
             else:
                 merged_clips.append(video_path)  # No audio for this clip
 
-        # Step 6: Render with captions (if enabled and Remotion available)
+        # Step 6: Render with captions (if enabled)
         final_clips = merged_clips
         if enable_captions and aligned_captions:
             try:
@@ -722,7 +722,7 @@ class AnimatedStoryGenerator:
 
                 final_clips = captioned_clips
             except ImportError:
-                logger.warning("[AnimatedStory] Remotion not available, skipping captions")
+                logger.warning("[AnimatedStory] Caption renderer not available, skipping captions")
             except Exception as e:
                 logger.warning(f"[AnimatedStory] Caption rendering failed: {e}")
 
@@ -915,46 +915,40 @@ class AnimatedStoryGenerator:
                 lines.append(stripped)
         return lines
 
-    async def _generate_all_clips(
+    async def _generate_single_clip(
         self,
-        panels: list[MangaPanel],
-        panel_paths: list[Path],
+        panel: MangaPanel,
+        panel_path: Optional[Path],
         clip_duration: int,
-        story_id: str,
-    ) -> list[tuple[Optional[Path], float]]:
-        """Generate all Veo clips sequentially. Returns list of (path, duration) tuples."""
-        clips = []
-        for i, panel in enumerate(panels):
-            panel_path = panel_paths[i]
-            if not panel_path:
-                clips.append((None, clip_duration))
-                continue
+        clip_index: int,
+    ) -> tuple[Optional[Path], float]:
+        """Generate a single Veo clip with retries. Returns (path, duration)."""
+        if not panel_path:
+            return (None, clip_duration)
 
-            max_attempts = 3
-            video_result = None
+        max_attempts = 3
+        video_result = None
 
-            for attempt in range(max_attempts):
-                try:
-                    if attempt > 0:
-                        await asyncio.sleep(2)
-                    video_result = await self.video.generate_minimal_motion_clip(
-                        image_path=panel_path,
-                        duration_seconds=clip_duration,
-                        clip_index=i,
-                    )
-                    if video_result.video_path is not None:
-                        break
-                except Exception as e:
-                    logger.error(f"[AnimatedStory] Video clip {i+1} attempt {attempt+1}: {e}")
+        for attempt in range(max_attempts):
+            try:
+                if attempt > 0:
+                    await asyncio.sleep(2)
+                video_result = await self.video.generate_minimal_motion_clip(
+                    image_path=panel_path,
+                    duration_seconds=clip_duration,
+                    clip_index=clip_index,
+                )
+                if video_result.video_path is not None:
+                    break
+            except Exception as e:
+                logger.error(f"[AnimatedStory] Video clip {clip_index+1} attempt {attempt+1}: {e}")
 
-            if video_result and video_result.video_path:
-                clips.append((video_result.video_path, video_result.duration_seconds))
-                logger.info(f"[AnimatedStory] Clip {i+1}: {video_result.video_path}")
-            else:
-                clips.append((None, clip_duration))
-                logger.error(f"[AnimatedStory] Clip {i+1} failed after {max_attempts} attempts")
-
-        return clips
+        if video_result and video_result.video_path:
+            logger.info(f"[AnimatedStory] Clip {clip_index+1}: {video_result.video_path}")
+            return (video_result.video_path, video_result.duration_seconds)
+        else:
+            logger.error(f"[AnimatedStory] Clip {clip_index+1} failed after {max_attempts} attempts")
+            return (None, clip_duration)
 
     async def _generate_music_task(
         self,
@@ -999,7 +993,7 @@ class AnimatedStoryGenerator:
         2. PARALLEL: Veo clips + ElevenLabs music
         3. Concat clips → 16s base video
         4. Add music audio to video
-        5. Render panel-locked lyrics via Remotion
+        5. Render panel-locked lyrics via FFmpeg ASS
         6. Verify output
 
         Args:
@@ -1124,10 +1118,15 @@ class AnimatedStoryGenerator:
         if lyrics_result and hasattr(lyrics_result, 'panel_local_styles'):
             pls = lyrics_result.panel_local_styles
 
-        # Launch both tasks in parallel
-        video_task = asyncio.create_task(
-            self._generate_all_clips(panels, panel_paths, clip_duration, story_id)
-        )
+        # Launch individual clip tasks + music task in parallel
+        # (per-clip tasks let us report progress as each clip finishes)
+        clip_tasks = []
+        for i, panel in enumerate(panels):
+            panel_path = panel_paths[i]
+            clip_tasks.append(asyncio.create_task(
+                self._generate_single_clip(panel, panel_path, clip_duration, i)
+            ))
+
         music_task = asyncio.create_task(
             self._generate_music_task(
                 tags, lyrics, music_duration, clip_duration,
@@ -1138,32 +1137,26 @@ class AnimatedStoryGenerator:
             )
         )
 
-        # Wait for both (report progress as they complete)
-        clips = None
+        # Wait for all tasks, yielding progress events as each completes
+        clips = [None] * clip_count
         music_result = None
-        done_tasks = set()
+        clips_done = 0
 
-        pending = {video_task, music_task}
+        pending = set(clip_tasks) | {music_task}
         while pending:
-            done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-            for task in done:
-                if task is video_task:
-                    try:
-                        clips = task.result()
-                        valid_clips_count = sum(1 for p, _ in clips if p is not None)
-                        yield AnimationStreamEvent('video_progress', {
-                            'message': f'All clips generated ({valid_clips_count}/{clip_count} successful)',
-                        })
-                    except Exception as e:
-                        logger.error(f"[AnimatedStory] Video generation failed: {e}")
-                        yield AnimationStreamEvent('error', {
-                            'message': f'Video generation failed: {str(e)[:100]}'
-                        })
-                        # Cancel music task if video fails
-                        music_task.cancel()
-                        return
+            done, pending = await asyncio.wait(
+                pending, return_when=asyncio.FIRST_COMPLETED, timeout=10,
+            )
 
-                elif task is music_task:
+            if not done:
+                # Timeout — send keepalive so SSE connection stays alive
+                yield AnimationStreamEvent('keepalive', {
+                    'message': f'Working... ({clips_done}/{clip_count} clips)',
+                })
+                continue
+
+            for task in done:
+                if task is music_task:
                     try:
                         music_result = task.result()
                         yield AnimationStreamEvent('music_progress', {
@@ -1176,8 +1169,36 @@ class AnimatedStoryGenerator:
                             'message': f'Music failed: {str(e)[:80]} — continuing without music',
                         })
                         music_result = None
+                elif task in clip_tasks:
+                    idx = clip_tasks.index(task)
+                    try:
+                        result = task.result()
+                        clips[idx] = result
+                        clips_done += 1
+                        yield AnimationStreamEvent('video_progress', {
+                            'message': f'Clip {idx+1}/{clip_count} ready ({clips_done}/{clip_count} done)',
+                        })
+                    except Exception as e:
+                        clips[idx] = (None, clip_duration)
+                        clips_done += 1
+                        logger.error(f"[AnimatedStory] Video clip {idx+1} failed: {e}")
+                        yield AnimationStreamEvent('video_progress', {
+                            'message': f'Clip {idx+1}/{clip_count} failed ({clips_done}/{clip_count} done)',
+                        })
 
             await asyncio.sleep(0)
+
+        # Check if we have any valid clips
+        valid_clips_count = sum(1 for c in clips if c and c[0] is not None)
+        if valid_clips_count == 0:
+            yield AnimationStreamEvent('error', {
+                'message': 'All video clips failed to generate'
+            })
+            return
+
+        yield AnimationStreamEvent('video_progress', {
+            'message': f'All clips generated ({valid_clips_count}/{clip_count} successful)',
+        })
 
         # Step 4: Concatenate clips → base video
         yield AnimationStreamEvent('compose', {
@@ -1304,7 +1325,7 @@ class AnimatedStoryGenerator:
                             )
 
                 except ImportError:
-                    logger.warning("[AnimatedStory] Remotion not available, skipping lyrics")
+                    logger.warning("[AnimatedStory] Caption renderer not available, skipping lyrics")
                 except Exception as e:
                     logger.warning(f"[AnimatedStory] Lyrics rendering failed: {e}")
 
@@ -1353,6 +1374,27 @@ class AnimatedStoryGenerator:
             except ValueError:
                 final_url = f"/assets/outputs/final/{final_video.name}"
 
+            # Step 8: Gemini visual verification (non-blocking — log only)
+            gemini_verify = {"passed": None, "captions_visible": None, "details": "skipped"}
+            if enable_lyrics and verification.passed:
+                try:
+                    yield AnimationStreamEvent('keepalive', {
+                        'message': 'Verifying captions with Gemini...',
+                    })
+                    from skills.verify_output import verify_video_with_gemini
+                    gemini_verify = await verify_video_with_gemini(
+                        path=final_video,
+                        expect_captions=True,
+                    )
+                    if not gemini_verify.get("captions_visible", False):
+                        logger.warning(
+                            f"[AnimatedStory] Gemini says captions NOT visible! "
+                            f"Details: {gemini_verify.get('details', '')}"
+                        )
+                        verification.failures.append("Gemini: captions not visible in final video")
+                except Exception as e:
+                    logger.warning(f"[AnimatedStory] Gemini verification skipped: {e}")
+
             yield AnimationStreamEvent('complete', {
                 'story_id': story_id,
                 'final_video_path': final_url,
@@ -1368,9 +1410,11 @@ class AnimatedStoryGenerator:
                 'actual_duration': round(verification.actual_duration, 2),
                 'actual_resolution': f"{verification.actual_width}x{verification.actual_height}",
                 'verification_failures': verification.failures if not verification.passed else [],
+                'gemini_captions_visible': gemini_verify.get("captions_visible"),
+                'gemini_caption_samples': gemini_verify.get("caption_samples", []),
             })
 
-            logger.info(f"[AnimatedStory] Music pipeline complete: {final_video} (verified={verification.passed})")
+            logger.info(f"[AnimatedStory] Music pipeline complete: {final_video} (verified={verification.passed}, gemini_captions={gemini_verify.get('captions_visible')})")
 
         except Exception as e:
             logger.error(f"[AnimatedStory] Music pipeline error: {e}")

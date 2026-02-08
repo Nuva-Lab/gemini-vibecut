@@ -40,7 +40,7 @@ skills/
 ├── align_captions/                   # Dual-mode: local (mlx) / cloud (qwen_asr)
 │   ├── SKILL.md
 │   └── align_captions.py
-└── render_captions/                  # Remotion karaoke captions
+└── render_captions/                  # FFmpeg ASS karaoke captions
     ├── SKILL.md
     └── render_captions.py
 ```
@@ -73,13 +73,13 @@ The body contains detailed instructions loaded only when the skill is triggered 
 | **TTS Generation** | `generate_tts/` | Multi-speaker dialogue (Gemini voices) | Gemini TTS Pro |
 | **Qwen3-TTS** | `qwen_tts/` | Dual-mode TTS with persona support | mlx / FAL |
 | **Caption Alignment** | `align_captions/` | Word-level timestamps (~30ms) | mlx / qwen_asr |
-| **Caption Rendering** | `render_captions/` | Karaoke caption overlay | Remotion |
+| **Caption Rendering** | `render_captions/` | Karaoke caption overlay (FFmpeg ASS) | FFmpeg |
 | **Video Generation** | `generate_video/` | Animate panels into video clips | Veo 3.1 |
 | **Animated Story** | `generate_animated_story/` | Full pipeline: TTS → Align → Video → Captions | All |
 | **Music Generation** | `generate_music/` | Create background music (optional) | Music API |
 | **ElevenLabs Music** | `generate_music/elevenlabs_music.py` | Cloud song gen with composition_plan: per-section duration, lyrics, local/global styles, BPM, vocal delivery (primary) | ElevenLabs |
 | **Final Composition** | `compose_final/` | Assemble video + audio with per-clip sync | FFmpeg |
-| **Verification** | `verify_output.py` | ffprobe-based output validation (duration, resolution, streams) | ffprobe |
+| **Verification** | `verify_output.py` | ffprobe + Gemini Pro visual validation (captions, quality) | ffprobe + Gemini |
 
 ---
 
@@ -178,16 +178,17 @@ See `compose_final/SKILL.md` for FFmpeg patterns.
 
 ### Output Verification (CRITICAL)
 
-**Never trust pipeline output without verification.** The pipeline uses `verify_video()` after every final concat to check:
-- Duration matches expected (within 2s tolerance)
-- Resolution is 1080x1920 (not Veo's raw 720x1280)
-- Audio stream present (when dialogue was generated)
+**Never trust pipeline output without verification.** Two verification layers:
 
-If resolution mismatches are detected, `concatenate_scenes()` auto-normalizes all clips to 1080x1920 before concat. The `complete` event includes `verified: true/false` and `verification_failures` for the UI.
+1. **ffprobe** (`verify_video()`): Duration, resolution (1080x1920), audio streams, file size
+2. **Gemini Pro** (`verify_video_with_gemini()`): Visual check — captions visible, character consistency
+
+The FFmpeg caption renderer handles resolution scaling (720x1280 → 1080x1920) in the same pass as subtitle burn-in, so resolution mismatches are resolved during caption rendering, not as a separate retry step.
 
 ```python
-from skills.verify_output import verify_video
+from skills.verify_output import verify_video, verify_video_with_gemini
 
+# Layer 1: ffprobe (fast, deterministic)
 result = verify_video(
     path=final_path,
     expected_duration=16.0,
@@ -195,7 +196,13 @@ result = verify_video(
     expected_height=1920,
     require_audio=True,
 )
-# result.passed, result.failures, result.actual_duration, etc.
+
+# Layer 2: Gemini visual (async, catches missing captions)
+gemini_result = await verify_video_with_gemini(
+    path=final_path,
+    expect_captions=True,
+)
+# gemini_result["captions_visible"], gemini_result["caption_samples"]
 ```
 
 ---

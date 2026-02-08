@@ -3694,7 +3694,7 @@
             switch (event.type) {
                 case 'start':
                     console.log('[Animate] Started:', event);
-                    addTechFlow('multimodal', 'Animation Start', `${event.panel_count} panels • ${event.mode || 'video'}`);
+                    addTechFlow('multimodal', 'Animation Start', `${event.panel_count} panels • Veo 3.1 Fast + ElevenLabs + FFmpeg ASS`);
                     break;
 
                 case 'voice_setup':
@@ -3719,7 +3719,7 @@
                         </div>
                     `;
                     if (event.tags) {
-                        addTechFlow('agentic', 'Lyrics Generated', `${event.tags.substring(0, 40)}...`);
+                        addTechFlow('agentic', 'Gemini Pro Lyrics', `${event.tags.substring(0, 40)}...`);
                     }
                     break;
 
@@ -3739,9 +3739,7 @@
                             <span>${event.message}</span>
                         </div>
                     `;
-                    if (event.panel_index) {
-                        addTechFlow('multimodal', `Veo Clip ${event.panel_index}`, 'Generating...');
-                    }
+                    addTechFlow('multimodal', 'Veo 3.1 Fast', event.message);
                     break;
 
                 case 'music_progress':
@@ -3751,7 +3749,7 @@
                             <span>${event.message}</span>
                         </div>
                     `;
-                    addTechFlow('multimodal', 'Music Generation', event.message);
+                    addTechFlow('multimodal', 'ElevenLabs Music', event.message);
                     break;
 
                 case 'compose':
@@ -3770,15 +3768,16 @@
                             <span>${event.message}</span>
                         </div>
                     `;
-                    addTechFlow('multimodal', 'Remotion Captions', 'Rendering...');
+                    addTechFlow('multimodal', 'FFmpeg Captions', event.message);
                     break;
 
                 case 'complete':
                     console.log('[Animate] Complete:', event);
                     const details = [`${event.total_duration}s`, `${event.clip_count} clips`];
-                    if (event.has_music) details.push('music');
-                    if (event.has_lyrics) details.push('lyrics');
-                    if (event.verified) details.push('verified');
+                    if (event.has_music) details.push('🎵 music');
+                    if (event.has_lyrics) details.push('🎤 lyrics');
+                    if (event.verified) details.push('✅ ffprobe');
+                    if (event.gemini_captions_visible) details.push('✅ Gemini verified');
                     addTechFlow('output', 'Video Complete', details.join(' | '));
 
                     // Save video to workspace
@@ -3821,6 +3820,12 @@
                             Watch Video
                         </a>
                     `;
+                    break;
+
+                case 'keepalive':
+                    // Connection keepalive during long Veo generation — update status text
+                    const kaSpan = statusDiv.querySelector('span');
+                    if (kaSpan) kaSpan.textContent = `🎬 ${event.message}`;
                     break;
 
                 case 'error':

@@ -27,7 +27,7 @@
 | Claude Code | Working (Bedrock Opus 4.6) | `~/.local/bin/claude` |
 | Repo | Cloned | `~/gemini-vibecut` |
 | Python deps | Installed via uv | `~/whatif` venv |
-| Remotion deps | Installed | `~/gemini-vibecut/remotion/node_modules` |
+| Remotion deps | Installed (legacy) | `~/gemini-vibecut/remotion/node_modules` — not used, FFmpeg ASS replaces it |
 | `~/.claude/` config | Synced from laptop | CLAUDE.md, settings, commands, skills |
 | AWS credentials | Synced (`nuva-aws` profile) | `~/.aws/` |
 | cloudflared v2026.2.0 | Installed (deb) | `/usr/bin/cloudflared` |
@@ -110,7 +110,6 @@ set -e
 cd /home/ubuntu/gemini-vibecut
 git pull origin main
 ~/.local/bin/uv pip install --python ~/whatif/bin/python -q -r requirements.txt
-cd remotion && npm install --quiet && cd ..
 sudo systemctl restart vibecut
 sleep 3
 curl -sf http://localhost:8000/health && echo "Deploy OK" || echo "Deploy FAILED"
@@ -139,7 +138,7 @@ Browser --HTTPS--> Cloudflare Edge (whatif.art)
                        ├── Static files (demo.html, agent/*.js, assets/)
                        ├── API endpoints (/api/*)
                        ├── FFmpeg (subprocess)
-                       └── Remotion (npx subprocess)
+                       └── FFmpeg (ASS caption burn-in)
 ```
 
 ## Cost: ~$30 for 3 weeks

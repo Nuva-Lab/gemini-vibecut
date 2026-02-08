@@ -62,9 +62,9 @@ Orchestrates the complete pipeline from manga panels to final video. Supports tw
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  REMOTION (motion graphics)                                             │
-│  - Render karaoke-style rolling captions                                │
-│  - Word-by-word highlight synced to audio                               │
+│  FFMPEG ASS (karaoke captions)                                          │
+│  - Generate ASS subtitle file with \k karaoke tags                      │
+│  - Burn captions + scale to 1080x1920 in one FFmpeg pass (~20s)        │
 └─────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
@@ -166,7 +166,7 @@ Manga panels + story beats
     ↓
 ┌──────────────────────────────────┐
 │ 5. Panel-lock lyrics → captions │  (line i → panel i time window)
-│ 6. Remotion → rolling lyrics    │  (RollingCaption, speaker="♪")
+│ 6. FFmpeg ASS → rolling lyrics  │  (\k karaoke tags, white→gold)
 └──────────────────────────────────┘
     ↓
 ┌──────────────────────────────────┐
@@ -199,13 +199,14 @@ async for event in gen.generate_animated_story_with_music_streaming(
 
 #### Panel-Aligned Lyrics
 
-Gemini generates exactly 4 lines (one per panel) following the story arc:
-- Line 1 → Panel 1 (setup) — gentle, building
-- Line 2 → Panel 2 (action) — rising energy
-- Line 3 → Panel 3 (twist) — energetic, catchy hook
-- Line 4 → Panel 4 (payoff) — triumphant, uplifting
+Gemini Pro generates 8 lines (2 per panel, couplet structure) following the story arc:
+- Lines 1-2 → Panel 1 (setup) — gentle, building
+- Lines 3-4 → Panel 2 (action) — rising energy
+- Lines 5-6 → Panel 3 (twist) — energetic, catchy hook
+- Lines 7-8 → Panel 4 (payoff) — triumphant, uplifting
 
-**Word budget**: 3-5 words per line. At singing speed, this fills ~4 seconds.
+**Word budget**: 3-6 words per line. Couplet pairs fill ~4 seconds per panel.
+**Self-review gate**: Gemini rates lyrics on storytelling/singability/energy_arc, regenerates once if any < 7.
 
 #### ElevenLabs Music Best Practices
 
@@ -279,16 +280,19 @@ Gemini generates JSON with enriched style data:
 
 | Event Type | Data | Description |
 |------------|------|-------------|
-| `lyrics_progress` | tags, lyrics | Gemini lyrics generation |
-| `video_progress` | clip_index, message | Veo clip generation (parallel with music) |
-| `music_progress` | audio_path, message | Music generation (parallel with video) |
-| `caption_progress` | message | Rolling lyrics rendering |
-| `complete` | has_music, has_lyrics, mood | Done |
+| `start` | story_id, panel_count, mode | Pipeline started |
+| `lyrics_progress` | tags, lyrics, message | Gemini Pro lyrics generation |
+| `video_progress` | message | Veo 3.1 Fast per-clip progress (parallel with music) |
+| `music_progress` | audio_path, message | ElevenLabs music generation (parallel with video) |
+| `keepalive` | message | SSE keepalive during long steps |
+| `caption_progress` | message | FFmpeg ASS caption rendering |
+| `complete` | final_video_path, has_music, has_lyrics, verified, gemini_captions_visible | Done |
+| `error` | message | Error occurred |
 
-### Known Issue: Colorspace
+### Colorspace Normalization
 
-Remotion outputs `yuvj420p` (full range) while Veo outputs `yuv420p` (limited range).
-The music pipeline normalizes to bt709 limited range after Remotion render via FFmpeg.
+FFmpeg caption render outputs bt709 limited range (`-pix_fmt yuv420p -color_range tv -colorspace bt709`),
+matching Veo's `yuv420p` output. No separate normalization step needed.
 
 ## Dependencies
 
@@ -297,8 +301,7 @@ The music pipeline normalizes to bt709 limited range after Remotion render via F
 - **FAL_KEY**: FAL API access — cloud mode
 - **Veo 3.1**: Via Google AI Studio (requires GOOGLE_API_KEY)
 - **ElevenLabs**: Cloud music generation (`pip install elevenlabs>=2.34.0`)
-- **Remotion**: Node.js (`cd remotion && npm install`)
-- **FFmpeg**: For audio/video merging and colorspace normalization
+- **FFmpeg**: Audio/video merging, ASS caption burn-in, resolution scaling
 - **transformers**: 4.57.6 (compatible with both qwen-tts and qwen-asr)
 
 ## Setup
@@ -308,10 +311,6 @@ The music pipeline normalizes to bt709 limited range after Remotion render via F
 pip install qwen-tts --no-deps
 pip install torch torchaudio transformers==4.57.6 soundfile
 pip install "elevenlabs>=2.34.0" "websockets>=13.0"
-
-# Remotion setup (for karaoke captions)
-cd remotion
-npm install
 
 # Environment variables (.env)
 GOOGLE_API_KEY=your_google_key

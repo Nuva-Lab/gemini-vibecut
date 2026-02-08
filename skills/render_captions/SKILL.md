@@ -1,15 +1,20 @@
 ---
 name: Caption Renderer
-description: Render video with rolling karaoke captions using Remotion
+description: Burn karaoke captions into video using FFmpeg ASS subtitles (~20s for 16s video)
 triggers:
   - Add captions to video
   - Karaoke subtitle overlay
-  - Motion graphics for dialogue
+  - Rolling lyrics on video
 ---
 
 # Caption Renderer Skill
 
-Render video with rolling karaoke-style captions using Remotion.
+Burn karaoke-style rolling captions into video using FFmpeg ASS subtitles.
+
+Words start **white** (not yet sung) and fill to **gold** as the karaoke sweep passes.
+Automatically scales to 1080x1920 if input is lower resolution (e.g., Veo's 720x1280).
+
+Performance: ~20s for 16s video at 720x1280 input, ~40s with scale to 1080x1920.
 
 ## Usage
 
@@ -32,11 +37,10 @@ captions = [
     ),
 ]
 
-# Render video with captions
+# Render video with captions (auto-scales to 1080x1920)
 output = await renderer.render_with_captions(
     video_path=Path("video.mp4"),
     captions=captions,
-    audio_path=Path("dialogue.wav"),
 )
 ```
 
@@ -51,15 +55,20 @@ output = await renderer.render_concatenated_video(
 )
 ```
 
+## How It Works
+
+1. Generates ASS subtitle file at target resolution (1080x1920)
+2. Uses `\k` karaoke tags for word-level gold highlighting
+3. FFmpeg `subtitles=` filter burns captions in a single pass
+4. Optional `scale=` filter normalizes resolution in the same pass
+
 ## Dependencies
 
-- Remotion (`cd remotion && npm install`)
-- FFmpeg (for concatenation)
-- Node.js 18+
+- FFmpeg (with libass for subtitle rendering)
 
-## Setup
+## Style
 
-```bash
-cd remotion
-npm install
-```
+- Font: Noto Sans Bold, 56px
+- Colors: White (unseen) → Gold (#FFD700) as words are sung
+- Background: Black semi-transparent box (BorderStyle=3)
+- Position: Bottom-centered, 120px margin from bottom edge

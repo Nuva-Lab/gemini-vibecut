@@ -1948,17 +1948,56 @@ async def animate_story_stream(request: AnimateStoryRequest):
     story_summary = " → ".join(p.story_beat for p in request.panels if p.story_beat) or ""
 
     async def stream_events():
-        """Wrap skill streaming to SSE format."""
-        logger.info(f"[ANIMATE] Using music pipeline with {len(character_sheets)} character sheets")
-        async for event in generator.generate_animated_story_with_music_streaming(
-            manga_result=manga_result,
-            characters=characters,
-            character_name=character_name,
-            story_summary=story_summary,
-            enable_lyrics=True,
-            clip_duration=4,
-        ):
-            yield f"data: {json.dumps({'type': event.type, **event.data})}\n\n"
+        """Wrap skill streaming to SSE format with global keepalive.
+
+        The animation pipeline has multiple long-blocking steps (Veo clips,
+        Remotion rendering) that can each take minutes. Without periodic SSE
+        data, Cloudflare Tunnel kills the idle connection. This wrapper runs
+        the generator in a background task, collects events via a queue, and
+        sends keepalive pings every 10s during any silent gap.
+        """
+        import asyncio as _asyncio
+
+        queue: _asyncio.Queue = _asyncio.Queue()
+        KEEPALIVE_INTERVAL = 10  # seconds
+
+        async def _producer():
+            try:
+                logger.info(f"[ANIMATE] Using music pipeline with {len(character_sheets)} character sheets")
+                async for event in generator.generate_animated_story_with_music_streaming(
+                    manga_result=manga_result,
+                    characters=characters,
+                    character_name=character_name,
+                    story_summary=story_summary,
+                    enable_lyrics=True,
+                    clip_duration=4,
+                ):
+                    await queue.put(event)
+            except Exception as e:
+                logger.error(f"[ANIMATE] Pipeline error: {e}")
+                from skills.generate_animated_story.generate_animated_story import AnimationStreamEvent
+                await queue.put(AnimationStreamEvent('error', {'message': str(e)[:200]}))
+            finally:
+                await queue.put(None)  # sentinel
+
+        producer_task = _asyncio.create_task(_producer())
+
+        try:
+            while True:
+                try:
+                    event = await _asyncio.wait_for(queue.get(), timeout=KEEPALIVE_INTERVAL)
+                except _asyncio.TimeoutError:
+                    # No event for KEEPALIVE_INTERVAL seconds — send keepalive
+                    yield f": keepalive\n\n"
+                    continue
+
+                if event is None:
+                    break  # producer done
+
+                yield f"data: {json.dumps({'type': event.type, **event.data})}\n\n"
+        finally:
+            if not producer_task.done():
+                producer_task.cancel()
 
     return StreamingResponse(
         stream_events(),

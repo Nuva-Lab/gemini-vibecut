@@ -49,8 +49,8 @@ def _sanitize_word_segments(segments: list[dict]) -> list[dict]:
     """
     Ensure every word segment has endMs > startMs.
 
-    Fixes zero-duration words from the aligner that cause Remotion
-    durationInFrames=0 render failures.
+    Fixes zero-duration words from the aligner that cause caption rendering
+    issues (zero-length karaoke segments).
 
     Rules:
     - If endMs <= startMs, set endMs = startMs + MIN_WORD_DURATION_MS
@@ -295,7 +295,7 @@ class CaptionAligner:
 
         logger.info(f"Aligned {len(word_segments)} words")
 
-        # Sanitize zero-duration words (prevents Remotion durationInFrames=0)
+        # Sanitize zero-duration words (ensures min 50ms per word for captions)
         word_segments = _sanitize_word_segments(word_segments)
 
         if not phrase_level:
@@ -396,7 +396,7 @@ class CaptionAligner:
         logger.debug("Grouping into words...")
         word_segments = _group_chars_into_words(char_segments, text, language)
 
-        # Sanitize zero-duration words (prevents Remotion durationInFrames=0)
+        # Sanitize zero-duration words (ensures min 50ms per word for captions)
         word_segments = _sanitize_word_segments(word_segments)
         logger.info(f"Aligned {len(char_segments)} chars -> {len(word_segments)} words")
 
