@@ -2,36 +2,34 @@
 
 > Run Claude Code on this EC2 instance to execute these steps interactively.
 
-## Prerequisites
+## Instance Details
 
-- EC2 `t3.medium`, Ubuntu 22.04 LTS, 50GB gp3
-- Security group: port 22 (SSH) only — Cloudflare Tunnel handles HTTPS
-- `.env` created at repo root with `GOOGLE_API_KEY`, `ELEVENLABS_API_KEY`, `VIBECUT_ENV=production`
+- **Host:** `jiao-gemini3-hackathon` (SSH config on laptop)
+- **IP:** `54.202.202.158`
+- **OS:** Ubuntu 24.04 LTS, `t3.medium`, us-west-2
+- **SSH key:** `jiao-ec2.pem`
+- **Domain:** `whatif.art` (Cloudflare-managed)
 
----
+## Current State (what's already done)
 
-## 1. System Dependencies
+| Component | Status | Location |
+|-----------|--------|----------|
+| Python 3.11.14 | Installed (via uv) | `~/whatif/bin/python` |
+| uv 0.10 | Installed | `~/.local/bin/uv` |
+| Node.js 22 | Installed | `/usr/bin/node` |
+| FFmpeg | Installed | system |
+| AWS CLI v2 | Installed | `/usr/local/bin/aws` |
+| GitHub CLI (`gh`) | Authenticated | `/usr/bin/gh` |
+| Claude Code | Working (Bedrock Opus 4.6) | `~/.local/bin/claude` |
+| Repo | Cloned | `~/gemini-vibecut` |
+| Python deps | Installed via uv | `~/whatif` venv |
+| Remotion deps | Installed | `~/gemini-vibecut/remotion/node_modules` |
+| `~/.claude/` config | Synced from laptop | CLAUDE.md, settings, commands, skills |
+| AWS credentials | Synced (`nuva-aws` profile) | `~/.aws/` |
 
-```bash
-sudo apt update && sudo apt install -y \
-  python3.11 python3.11-venv python3-pip \
-  ffmpeg \
-  nodejs npm \
-  git
-```
+## Remaining Steps
 
-## 2. App Setup
-
-```bash
-git clone https://github.com/<user>/gemini-vibecut.git ~/gemini-vibecut
-cd ~/gemini-vibecut
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cd remotion && npm install && cd ..
-```
-
-## 3. Create `.env`
+### 1. Create `.env`
 
 ```bash
 cat > ~/gemini-vibecut/.env << 'EOF'
@@ -41,7 +39,7 @@ VIBECUT_ENV=production
 EOF
 ```
 
-## 4. systemd Service
+### 2. systemd Service
 
 ```bash
 sudo tee /etc/systemd/system/vibecut.service << 'EOF'
@@ -54,10 +52,10 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/gemini-vibecut/ui
 EnvironmentFile=/home/ubuntu/gemini-vibecut/.env
-ExecStart=/home/ubuntu/gemini-vibecut/.venv/bin/python api_server.py
+ExecStart=/home/ubuntu/whatif/bin/python api_server.py
 Restart=always
 RestartSec=5
-Environment=PATH=/home/ubuntu/gemini-vibecut/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/home/ubuntu/whatif/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=multi-user.target
@@ -70,7 +68,7 @@ sudo systemctl start vibecut
 
 Verify: `curl -s http://localhost:8000/health`
 
-## 5. Cloudflare Tunnel (Named)
+### 3. Cloudflare Tunnel (Named — on whatif.art)
 
 ```bash
 # Install cloudflared
@@ -84,14 +82,14 @@ cloudflared tunnel create vibecut
 # Note the <TUNNEL_ID> from output
 ```
 
-Create config:
+Create config (use a random subdomain for privacy):
 ```bash
 mkdir -p ~/.cloudflared
 cat > ~/.cloudflared/config.yml << 'EOF'
 tunnel: vibecut
 credentials-file: /home/ubuntu/.cloudflared/<TUNNEL_ID>.json
 ingress:
-  - hostname: vibecut.<your-domain>.com
+  - hostname: <random-prefix>.whatif.art
     service: http://localhost:8000
   - service: http_status:404
 EOF
@@ -99,13 +97,13 @@ EOF
 
 Route DNS + start:
 ```bash
-cloudflared tunnel route dns vibecut vibecut.<your-domain>.com
+cloudflared tunnel route dns vibecut <random-prefix>.whatif.art
 sudo cloudflared service install
 sudo systemctl enable cloudflared
 sudo systemctl start cloudflared
 ```
 
-## 6. Deploy Script
+### 4. Deploy Script
 
 ```bash
 cat > ~/deploy.sh << 'SCRIPT'
@@ -113,8 +111,8 @@ cat > ~/deploy.sh << 'SCRIPT'
 set -e
 cd /home/ubuntu/gemini-vibecut
 git pull origin main
-source .venv/bin/activate
-pip install -q -r requirements.txt
+source ~/whatif/bin/activate
+uv pip install -q -r requirements.txt
 cd remotion && npm install --quiet && cd ..
 sudo systemctl restart vibecut
 sleep 3
@@ -123,7 +121,7 @@ SCRIPT
 chmod +x ~/deploy.sh
 ```
 
-## 7. Session Cleanup Cron
+### 5. Session Cleanup Cron
 
 ```bash
 (crontab -l 2>/dev/null; echo "0 3 * * * find /home/ubuntu/gemini-vibecut/assets/outputs/sessions/ -maxdepth 1 -mtime +3 -exec rm -rf {} \;") | crontab -
@@ -133,7 +131,7 @@ chmod +x ~/deploy.sh
 
 ## Verification Checklist
 
-1. `curl https://vibecut.<domain>.com/health` returns healthy
+1. `curl https://<random-prefix>.whatif.art/health` returns healthy
 2. Browser: demo loads with phone frame UI
 3. Upload a photo, streaming analysis works through tunnel
 4. Create character, image generation returns
@@ -144,7 +142,7 @@ chmod +x ~/deploy.sh
 ## Redeploy (from laptop)
 
 ```bash
-alias deploy-vibecut="ssh ec2-vibecut 'bash /home/ubuntu/deploy.sh'"
+alias deploy-vibecut="ssh jiao-gemini3-hackathon 'bash /home/ubuntu/deploy.sh'"
 # Usage: git push && deploy-vibecut
 ```
 
