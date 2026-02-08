@@ -326,14 +326,17 @@ export class AgentBrain {
             case 'ask_story_question': {
                 const { character_id, question, options, story_context } = args;
 
-                // Handle multi-character IDs - use first character for now
-                const firstId = character_id?.includes(',')
-                    ? character_id.split(',')[0].trim()
-                    : character_id;
-                const character = this.context.savedCharacters.find(c => c.id === firstId);
+                // Resolve all character IDs (comma-separated or single)
+                const ids = character_id?.includes(',')
+                    ? character_id.split(',').map(id => id.trim())
+                    : [character_id];
+                const characters = ids
+                    .map(id => this.context.savedCharacters.find(c => c.id === id))
+                    .filter(Boolean);
 
                 await this.onSkillExecute('ask_story_question', {
-                    character,
+                    character: characters[0] || null,
+                    characters,
                     question,
                     options,
                     story_context
@@ -345,14 +348,17 @@ export class AgentBrain {
             case 'confirm_story': {
                 const { character_id, synopsis, story_beats, dialogues } = args;
 
-                // Handle multi-character IDs - use first character for now
-                const firstId = character_id?.includes(',')
-                    ? character_id.split(',')[0].trim()
-                    : character_id;
-                const character = this.context.savedCharacters.find(c => c.id === firstId);
+                // Resolve all character IDs (comma-separated or single)
+                const ids = character_id?.includes(',')
+                    ? character_id.split(',').map(id => id.trim())
+                    : [character_id];
+                const characters = ids
+                    .map(id => this.context.savedCharacters.find(c => c.id === id))
+                    .filter(Boolean);
 
                 await this.onSkillExecute('confirm_story', {
-                    character,
+                    character: characters[0] || null,
+                    characters,
                     synopsis,
                     story_beats,
                     dialogues

@@ -1226,6 +1226,13 @@ body {
     background: rgba(0,0,0,0.3);
 }
 
+/* Pills inside story/synopsis card headers */
+.story-card-header .char-pill,
+.story-synopsis-header .char-pill {
+    display: inline-flex;
+    vertical-align: middle;
+}
+
 .chat-input-row {
     display: flex;
     gap: 6px;

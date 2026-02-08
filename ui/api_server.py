@@ -139,6 +139,7 @@ class MediaItem(BaseModel):
     """A single media item (photo or video) in the gallery."""
     path: str
     type: str = "image"  # "image" or "video"
+    uploaded: bool = False  # True if user-uploaded (not demo media)
 
 
 class GalleryAnalysisRequest(BaseModel):
@@ -156,6 +157,7 @@ class LifeCharacter(BaseModel):
     what_you_notice: str
     type: str  # pet, person, recurring_subject
     image_indices: list[int] = []  # Which photo indices this character appears in
+    has_uploaded_media: bool = False  # True if any index overlaps with user uploads
 
 
 class MeaningfulPlace(BaseModel):
@@ -165,6 +167,7 @@ class MeaningfulPlace(BaseModel):
     mood: str
     appearances: int
     image_indices: list[int] = []  # Which photo indices show this place
+    has_uploaded_media: bool = False  # True if any index overlaps with user uploads
 
 
 class EmotionalMoment(BaseModel):
@@ -352,7 +355,11 @@ Every gallery tells a unique story. Your job is to SEE and HEAR that story and r
 ## CRITICAL: Media Indexing
 
 Each item is labeled `[Media X: filename]` (0-based). The filename tells you what the item is.
-For example: `[Media 11: dog_01.webp]` means index 11 is a dog photo. `[Media 3: cat_clip.mp4 (video)]` means index 3 is a cat video.
+- `[Media 11: dog_01.webp]` → index 11 is a dog photo
+- `[Media 3: cat_clip.mp4 (video)]` → index 3 is a cat video
+- `[Media 0: photo_abc123.jpeg (your upload)]` → index 0 is a user-uploaded photo
+
+Items marked **(your upload)** were actively added by the user. They chose these specifically, so **always** include subjects from uploaded media as life_characters — even if they appear in only 1-3 items. The user uploaded them because they matter.
 
 USE THE FILENAMES to verify your indices! If you're listing a dog character's media_indices and you know the dog photos are named dog_01, dog_02, etc., check the labels to find their exact index numbers.
 
@@ -367,7 +374,8 @@ For example:
 - Identify pets and people who appear in MULTIPLE items — photos, videos, or both.
 - If you see the same cat in photos AND hear it meowing in a video — that's the same character. Include the video index!
 - Create a life_character entry for EACH distinct individual.
-- Prioritize: pets first, then people, then recurring objects.
+- Prioritize: user uploads first, then pets, then people, then recurring objects.
+- **User uploads are MANDATORY**: Any person, pet, or subject in items tagged "(your upload)" MUST get their own life_character entry. The user specifically added these — never ignore them.
 - IMPORTANT: Check EVERY [Media X] label. Videos count!
 
 **2. Notice patterns across time:**
@@ -1009,9 +1017,10 @@ async def upload_media(
     session_dir = get_session_output_dir(session_id) / "uploads"
     session_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate unique filename
-    stem = Path(file.filename).stem if file.filename else "upload"
-    safe_name = f"{uuid.uuid4().hex[:8]}_{stem}{ext}"
+    # Generate neutral filename (avoids confusing Gemini with original names like "Generated Image...")
+    tag = uuid.uuid4().hex[:8]
+    prefix = "clip" if is_video else "photo"
+    safe_name = f"{prefix}_{tag}{ext}"
     save_path = session_dir / safe_name
 
     with open(save_path, "wb") as f:
@@ -1078,6 +1087,7 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
     for idx, item in enumerate(media_items):
         media_path = item.path
         media_type = item.type
+        is_uploaded = item.uploaded
 
         # Handle various path formats from the demo
         if media_path.startswith('../'):
@@ -1108,8 +1118,9 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
 
                 if video_file.state.name == "ACTIVE":
                     # Label with index + filename so Gemini can cross-reference
+                    upload_tag = ", your upload" if is_uploaded else ""
                     media_parts.append(
-                        types.Part.from_text(text=f"[Media {idx}: {resolved_path.name} (video)]")
+                        types.Part.from_text(text=f"[Media {idx}: {resolved_path.name} (video{upload_tag})]")
                     )
                     media_parts.append(
                         types.Part.from_uri(
@@ -1133,8 +1144,9 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
                 mime_type = image_mime_types.get(suffix, "image/jpeg")
 
                 # Label with index + filename so Gemini can cross-reference
+                upload_tag = " (your upload)" if is_uploaded else ""
                 media_parts.append(
-                    types.Part.from_text(text=f"[Media {idx}: {resolved_path.name}]")
+                    types.Part.from_text(text=f"[Media {idx}: {resolved_path.name}{upload_tag}]")
                 )
                 media_parts.append(
                     types.Part.from_bytes(data=image_data, mime_type=mime_type)
@@ -1169,6 +1181,9 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
         analysis = _unwrap_analysis(json.loads(response.text))
         logger.info(f"Analysis complete - Opening: {analysis.get('opening_reaction', '')[:50]}...")
 
+        # Which media indices are user uploads
+        uploaded_indices = {idx for idx, item in enumerate(media_items) if item.uploaded}
+
         # Parse life characters (accept both media_indices and image_indices)
         life_characters = []
         for char in analysis.get("life_characters", []):
@@ -1181,6 +1196,7 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
                     what_you_notice=char.get("what_you_notice", ""),
                     type=char.get("type", "unknown"),
                     image_indices=indices,
+                    has_uploaded_media=bool(set(indices) & uploaded_indices),
                 ))
             except Exception as e:
                 logger.warning(f"Failed to parse life character: {e}")
@@ -1196,6 +1212,7 @@ async def analyze_gallery(request: GalleryAnalysisRequest):
                     mood=place.get("mood", ""),
                     appearances=place.get("appearances", 1),
                     image_indices=indices,
+                    has_uploaded_media=bool(set(indices) & uploaded_indices),
                 ))
             except Exception as e:
                 logger.warning(f"Failed to parse meaningful place: {e}")
@@ -1311,7 +1328,8 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
 
     image_count = sum(1 for item in media_items if item.type == "image")
     video_count = sum(1 for item in media_items if item.type == "video")
-    logger.info(f"[STREAM] Analyzing gallery with {len(media_items)} items ({image_count} images, {video_count} videos)")
+    upload_count = sum(1 for item in media_items if item.uploaded)
+    logger.info(f"[STREAM] Analyzing gallery with {len(media_items)} items ({image_count} images, {video_count} videos, {upload_count} user uploads)")
 
     base_dir = Path(__file__).parent.parent
     image_mime_types = {
@@ -1336,6 +1354,7 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
         for idx, item in enumerate(media_items):
             media_path = item.path
             media_type = item.type
+            is_uploaded = item.uploaded
 
             # Resolve path
             if media_path.startswith('../'):
@@ -1366,7 +1385,8 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
                         video_file = client.files.get(name=video_file.name)
 
                     if video_file.state.name == "ACTIVE":
-                        media_parts.append(types.Part.from_text(text=f"[Media {idx}: {resolved_path.name} (video)]"))
+                        upload_tag = ", your upload" if is_uploaded else ""
+                        media_parts.append(types.Part.from_text(text=f"[Media {idx}: {resolved_path.name} (video{upload_tag})]"))
                         media_parts.append(types.Part.from_uri(
                             file_uri=video_file.uri,
                             mime_type=video_file.mime_type,
@@ -1386,7 +1406,8 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
                     with open(resolved_path, "rb") as f:
                         image_data = f.read()
                     mime_type = image_mime_types.get(suffix, "image/jpeg")
-                    media_parts.append(types.Part.from_text(text=f"[Media {idx}: {resolved_path.name}]"))
+                    upload_tag = " (your upload)" if is_uploaded else ""
+                    media_parts.append(types.Part.from_text(text=f"[Media {idx}: {resolved_path.name}{upload_tag}]"))
                     media_parts.append(types.Part.from_bytes(data=image_data, mime_type=mime_type))
                     loaded_count += 1
                     yield f"data: {json.dumps({'type': 'progress', 'index': idx, 'total': len(media_items), 'message': f'Loaded image {idx + 1}'})}\n\n"
@@ -1469,13 +1490,18 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
             analysis = _unwrap_analysis(analysis)
             logger.info(f"[STREAM] Analysis complete ({reaction_count} reactions) - Opening: {analysis.get('opening_reaction', '')[:50]}...")
 
-            # Log character indices to verify video indices are included
+            # Which media indices are user uploads (for logging)
+            uploaded_indices_log = {idx for idx, item in enumerate(media_items) if item.uploaded}
+
+            # Log character indices and upload status
             for ci, char in enumerate(analysis.get("life_characters", [])):
                 indices = char.get("media_indices", char.get("image_indices", []))
-                logger.info(f"[STREAM] Character {ci} '{char.get('name_suggestion', '?')}': indices={indices}")
+                has_upload = bool(set(indices) & uploaded_indices_log)
+                logger.info(f"[STREAM] Character {ci} '{char.get('name_suggestion', '?')}': indices={indices}, has_uploaded_media={has_upload}")
             for pi, place in enumerate(analysis.get("meaningful_places", [])):
                 indices = place.get("media_indices", place.get("image_indices", []))
-                logger.info(f"[STREAM] Place {pi} '{place.get('place_description', '?')}': indices={indices}")
+                has_upload = bool(set(indices) & uploaded_indices_log)
+                logger.info(f"[STREAM] Place {pi} '{place.get('place_description', '?')}': indices={indices}, has_uploaded_media={has_upload}")
 
             # Phase 3: Stream parsed results
             if analysis.get("opening_reaction"):
@@ -1486,6 +1512,9 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
 
             for place in analysis.get("meaningful_places", []):
                 yield f"data: {json.dumps({'type': 'place', 'data': place})}\n\n"
+
+            # Which media indices are user uploads
+            uploaded_indices = {idx for idx, item in enumerate(media_items) if item.uploaded}
 
             # Parse the full result (same logic as non-streaming endpoint)
             life_characters = []
@@ -1499,6 +1528,7 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
                         what_you_notice=char.get("what_you_notice", ""),
                         type=char.get("type", "unknown"),
                         image_indices=indices,
+                        has_uploaded_media=bool(set(indices) & uploaded_indices),
                     ))
                 except Exception as e:
                     logger.warning(f"[STREAM] Failed to parse life character: {e}")
@@ -1513,6 +1543,7 @@ async def analyze_gallery_stream(request: GalleryAnalysisRequest):
                         mood=place.get("mood", ""),
                         appearances=place.get("appearances", 1),
                         image_indices=indices,
+                        has_uploaded_media=bool(set(indices) & uploaded_indices),
                     ))
                 except Exception as e:
                     logger.warning(f"[STREAM] Failed to parse meaningful place: {e}")

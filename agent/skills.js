@@ -160,11 +160,11 @@ RULES:
             properties: {
                 character_id: {
                     type: 'string',
-                    description: 'ID of the saved character'
+                    description: 'Comma-separated IDs of saved characters (e.g. "id1" or "id1, id2" for multi-character stories)'
                 },
                 question: {
                     type: 'string',
-                    description: 'Personalized question that references what you know about this character'
+                    description: 'Personalized question that references what you know about the character(s)'
                 },
                 options: {
                     type: 'array',
@@ -204,7 +204,7 @@ User can:
             properties: {
                 character_id: {
                     type: 'string',
-                    description: 'ID of the saved character'
+                    description: 'Comma-separated IDs of saved characters (e.g. "id1" or "id1, id2" for multi-character stories)'
                 },
                 synopsis: {
                     type: 'string',

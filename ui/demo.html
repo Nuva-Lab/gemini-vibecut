@@ -866,21 +866,28 @@
 
                 case 'create_manga': {
                     const { characters, panel_count, story_beats, dialogues, style } = args;
+                    storyFlowActive = false; // Story building complete, now generating
                     await generateAndShowManga(device, characters, panel_count, story_beats, style, dialogues);
                     break;
                 }
 
                 case 'ask_story_question': {
-                    const { character, question, options, story_context } = args;
-                    renderStoryQuestionCard(device, character, question, options, story_context);
-                    setDebugCurrentDisplay({ type: 'story_question', character_name: character?.name, question });
+                    const { character, characters, question, options, story_context } = args;
+                    const charArray = characters || (character ? [character] : []);
+                    renderStoryQuestionCard(device, charArray, question, options, story_context);
+                    charArray.forEach(c => syncCharacterSelection(c));
+                    storyFlowActive = true;
+                    setDebugCurrentDisplay({ type: 'story_question', character_names: charArray.map(c => c?.name), question });
                     break;
                 }
 
                 case 'confirm_story': {
-                    const { character, synopsis, story_beats, dialogues } = args;
-                    renderStoryConfirmCard(device, character, synopsis, story_beats, dialogues);
-                    setDebugCurrentDisplay({ type: 'story_confirm', character_name: character?.name, synopsis });
+                    const { character, characters, synopsis, story_beats, dialogues } = args;
+                    const charArray = characters || (character ? [character] : []);
+                    renderStoryConfirmCard(device, charArray, synopsis, story_beats, dialogues);
+                    charArray.forEach(c => syncCharacterSelection(c));
+                    storyFlowActive = true;
+                    setDebugCurrentDisplay({ type: 'story_confirm', character_names: charArray.map(c => c?.name), synopsis });
                     break;
                 }
 
@@ -1435,6 +1442,7 @@
 
         // Render permission card (without saving - for restoration)
         function renderPermissionCard(device, scroll = true) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
             const card = document.createElement('div');
             card.className = 'chat-msg assistant';
@@ -1492,7 +1500,8 @@
             // Build media items with type info for gallery analysis
             const mediaItems = mediaSequences.map(m => ({
                 path: m.src,
-                type: m.type || 'image'
+                type: m.type || 'image',
+                uploaded: m.uploaded || false
             }));
             sessionState.mediaItems = mediaItems;
             sessionState.photoUrls = mediaSequences.map(p => p.src); // Keep for thumbnail lookup by index
@@ -1723,8 +1732,27 @@
             return `<img src="${url}" class="${className}" alt="${alt || ''}">`;
         }
 
+        /**
+         * Deactivate all actionable buttons/inputs in previous chat cards.
+         * Called before rendering any new actionable card so only the latest card is interactive.
+         */
+        function deactivatePreviousCards(device) {
+            const container = document.getElementById(`${device}-chat-messages`);
+            if (!container) return;
+            container.querySelectorAll('button:not(:disabled), input:not(:disabled)').forEach(el => {
+                // Skip the chat input row (always stays active)
+                if (el.closest('.chat-input-row') || el.closest('.chat-input-area')) return;
+                el.disabled = true;
+            });
+            // Dim stale cards with actions
+            container.querySelectorAll('.story-card, .story-synopsis-card, .card-actions, .a2ui-card').forEach(el => {
+                el.style.opacity = '0.6';
+            });
+        }
+
         // Single character card - A2UI: message + image + reactions + actions
         function renderSingleCharacterCard(device, char, index, showNext, message) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
             const card = document.createElement('div');
             card.className = 'chat-msg assistant';
@@ -1753,8 +1781,9 @@
                 ? `<div style="font-size: 13px; color: var(--on-surface); margin-bottom: 6px;">${message}</div>`
                 : '';
 
-            // Can create character if 3+ photos
-            const canCreateChar = (char.appearances || char.image_indices?.length || 0) >= 3;
+            // Can create character if 3+ photos (1+ for user-uploaded subjects)
+            const photoCount = char.appearances || char.image_indices?.length || 0;
+            const canCreateChar = char.has_uploaded_media ? photoCount >= 1 : photoCount >= 3;
 
             card.innerHTML = `
                 <div class="chat-msg-bubble" style="padding: 10px 12px;" id="${cardId}">
@@ -1818,6 +1847,7 @@
 
         // Single place card - A2UI: message + image + actions all in one widget
         function renderSinglePlaceCard(device, place, index, showNext, message) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
             const card = document.createElement('div');
             card.className = 'chat-msg assistant';
@@ -1882,6 +1912,7 @@
 
         // Video highlights card — shows all videos from the gallery with Gemini's observations
         function renderVideoHighlightsCard(device, videoItems, analysisResult) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
             const card = document.createElement('div');
             card.className = 'chat-msg assistant';
@@ -1929,6 +1960,7 @@
 
         // Single idea card - A2UI: message + content + actions all in one widget
         function renderSingleIdeaCard(device, spark, index, showNext, message) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
             const card = document.createElement('div');
             card.className = 'chat-msg assistant';
@@ -2557,9 +2589,11 @@
 
         // Agent skill: Suggest making an anime character - A2UI card with embedded action
         function suggestMakeAnimeSkill(device, charIndex, message) {
+            deactivatePreviousCards(device);
             const result = sessionState.analysisResult;
             const char = result?.life_characters?.[charIndex];
-            if (!char || (char.image_indices?.length || 0) < 3) return;
+            const minPhotos = char?.has_uploaded_media ? 1 : 3;
+            if (!char || (char.image_indices?.length || 0) < minPhotos) return;
 
             const container = document.getElementById(`${device}-chat-messages`);
             const card = document.createElement('div');
@@ -2942,16 +2976,19 @@
          * Render interactive story question card
          * Creative scratchpad style with personalized feel
          */
-        function renderStoryQuestionCard(device, character, question, options, storyContext) {
+        function renderStoryQuestionCard(device, charactersOrChar, question, options, storyContext) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
-            const characterName = character?.name || 'your character';
+            // Accept both single character and array
+            const charArray = Array.isArray(charactersOrChar) ? charactersOrChar : [charactersOrChar];
+            const charNames = charArray.map(c => c?.name).filter(Boolean).join(' & ') || 'your character';
 
             const card = document.createElement('div');
             card.className = 'chat-msg assistant';
 
             // Store context for the response
             const contextId = `story-ctx-${Date.now()}`;
-            window[contextId] = { character, storyContext: storyContext || {} };
+            window[contextId] = { characters: charArray, storyContext: storyContext || {} };
 
             const optionsHtml = options.map((opt, i) => `
                 <button class="story-option" data-context-id="${contextId}" data-value="${opt.value}">
@@ -2960,11 +2997,14 @@
                 </button>
             `).join('');
 
+            const charPillsHtml = charArray.map(c => buildCharPillHtml(c)).filter(Boolean).join('');
+
             card.innerHTML = `
                 <div class="story-card">
                     <div class="story-card-header">
                         <span class="icon">📝</span>
-                        <span>Story time with ${characterName}</span>
+                        <span>Story time with</span>
+                        ${charPillsHtml || `<span>${charNames}</span>`}
                     </div>
                     <div class="story-card-question">${question}</div>
                     <div class="story-options">
@@ -2983,6 +3023,11 @@
             container.appendChild(card);
             container.scrollTop = container.scrollHeight;
 
+            // Build character context string for agent messages
+            const charContextStr = selectedCharacters.size > 0
+                ? `[Characters: ${Array.from(selectedCharacters.values()).map(c => c.name).join(', ')} (ids: ${Array.from(selectedCharacters.keys()).join(', ')})] `
+                : '';
+
             // Event listeners for option buttons
             card.querySelectorAll('.story-option').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
@@ -2992,8 +3037,8 @@
                     card.querySelectorAll('button, input').forEach(el => el.disabled = true);
                     e.currentTarget.classList.add('selected');
 
-                    // Send response to agent
-                    await agentChat(`User chose: "${value}" for ${characterName}'s story.`);
+                    // Send response to agent with full character context
+                    await agentChat(`${charContextStr}User chose: "${value}" for the story.`);
                 });
             });
 
@@ -3008,8 +3053,8 @@
                 // Disable all interactive elements
                 card.querySelectorAll('button, input').forEach(el => el.disabled = true);
 
-                // Send response to agent
-                await agentChat(`User's idea for ${characterName}'s story: "${value}"`);
+                // Send response to agent with full character context
+                await agentChat(`${charContextStr}User's idea for the story: "${value}"`);
             });
 
             customInput.addEventListener('keypress', async (e) => {
@@ -3023,21 +3068,26 @@
          * Render story confirmation card
          * Beautiful synopsis card with creative styling
          */
-        function renderStoryConfirmCard(device, character, synopsis, storyBeats, dialogues) {
+        function renderStoryConfirmCard(device, charactersOrChar, synopsis, storyBeats, dialogues) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
-            const characterName = character?.name || 'your character';
+            // Accept both single character and array
+            const charArray = Array.isArray(charactersOrChar) ? charactersOrChar : [charactersOrChar];
+            const charNames = charArray.map(c => c?.name).filter(Boolean).join(' & ') || 'your character';
 
             // Store story data for generation (internal, not shown to user)
             const storyId = `story-data-${Date.now()}`;
-            window[storyId] = { character, storyBeats, dialogues };
+            window[storyId] = { characters: charArray, storyBeats, dialogues };
 
             const card = document.createElement('div');
             card.className = 'chat-msg assistant';
 
+            const charPillsHtml = charArray.map(c => buildCharPillHtml(c)).filter(Boolean).join('');
+
             card.innerHTML = `
                 <div class="story-synopsis-card">
                     <div class="story-synopsis-header">
-                        ✨ ${characterName}'s story is ready!
+                        ✨ ${charPillsHtml || charNames} story is ready!
                     </div>
                     <div class="story-synopsis-text">
                         ${synopsis}
@@ -3062,6 +3112,11 @@
 
             const refineInput = card.querySelector(`#story-refine-${storyId}`);
 
+            // Build character context string for agent messages
+            const charContextStr = selectedCharacters.size > 0
+                ? `[Characters: ${Array.from(selectedCharacters.values()).map(c => c.name).join(', ')} (ids: ${Array.from(selectedCharacters.keys()).join(', ')})] `
+                : '';
+
             // Generate button
             card.querySelector('.story-btn-primary').addEventListener('click', async (e) => {
                 const refinement = refineInput.value.trim();
@@ -3069,12 +3124,13 @@
                 // Disable all interactive elements
                 card.querySelectorAll('button, input').forEach(el => el.disabled = true);
                 e.currentTarget.textContent = '🎬 Creating...';
+                storyFlowActive = false;
 
                 // Tell agent to generate (with manga-specific spinner messages)
                 if (refinement) {
-                    await agentChat(`User approved the story with this note: "${refinement}". Create the manga!`, 'manga');
+                    await agentChat(`${charContextStr}User approved the story with this note: "${refinement}". Create the manga!`, 'manga');
                 } else {
-                    await agentChat(`User loved the story! Create the manga now.`, 'manga');
+                    await agentChat(`${charContextStr}User loved the story! Create the manga now.`, 'manga');
                 }
             });
 
@@ -3084,7 +3140,7 @@
                 card.querySelectorAll('button, input').forEach(el => el.disabled = true);
 
                 // Ask agent to restart
-                await agentChat(`User wants to try a different direction for ${characterName}'s story.`);
+                await agentChat(`${charContextStr}User wants to try a different direction for the story.`);
             });
 
             // Enter key on refine input
@@ -3327,6 +3383,7 @@
          * @param {string[]} dialogues - Optional dialogue for each panel (displayed to user)
          */
         async function generateAndShowManga(device, characters, panelCount, storyBeats, style, dialogues = []) {
+            deactivatePreviousCards(device);
             const container = document.getElementById(`${device}-chat-messages`);
 
             // Normalize to array (backwards compatibility)
@@ -3363,12 +3420,13 @@
             console.log('[Manga] Using characters:', characterInfos);
 
             // Create the manga card container that will be progressively filled
+            const charPillsHtml = charArray.map(c => buildCharPillHtml(c)).join('');
             const mangaCard = document.createElement('div');
             mangaCard.className = 'chat-msg assistant';
             mangaCard.innerHTML = `
                 <div class="chat-msg-bubble" style="padding: 12px; max-width: 100%;">
-                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px;">
-                        📖 ${charNames}'s Story
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        📖 ${charPillsHtml || charNames} Story
                     </div>
                     <div id="manga-panels-${Date.now()}" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
                         <!-- Panels will be added here progressively -->
@@ -4106,6 +4164,7 @@
 
         // Track selected characters for Create tab (with localStorage persistence)
         let selectedCharacters = new Map(); // id -> { name, imageUrl }
+        let storyFlowActive = false; // True when interactive story building is in progress
 
         // Load persisted selections on startup
         function loadSelectedCharacters() {
@@ -4174,6 +4233,13 @@
 
             // Persist to localStorage
             saveSelectedCharacters();
+
+            // If story flow is active, re-trigger with updated character set
+            if (storyFlowActive && selectedCharacters.size > 0) {
+                const charNames = Array.from(selectedCharacters.values()).map(c => c.name);
+                const charIds = Array.from(selectedCharacters.keys());
+                agentChat(`[User updated character selection to: ${charNames.join(', ')} (ids: ${charIds.join(', ')}). Restart interactive story building with all selected characters.]`);
+            }
         }
 
         /**
@@ -4259,6 +4325,36 @@
                 const input = document.getElementById('android-chat-input');
                 if (input) input.placeholder = 'Ask me anything...';
             }
+        }
+
+        /**
+         * Build inline HTML for a read-only character pill (for embedding in cards)
+         * @param {object} character - Saved character object with name, id, generatedImages
+         * @returns {string} HTML string for the pill
+         */
+        function buildCharPillHtml(character) {
+            if (!character) return '';
+            let imageUrl = '';
+            if (character.generatedImages?.length > 0) {
+                const portrait = character.generatedImages.find(img => img.variant === 'portrait');
+                imageUrl = (portrait || character.generatedImages[0]).originalUrl || '';
+            }
+            const imgHtml = imageUrl ? `<img src="${imageUrl}" alt="${character.name}">` : '';
+            return `<div class="char-pill" data-char-id="${character.id}">${imgHtml}<span>${character.name}</span></div>`;
+        }
+
+        /**
+         * Sync a character into selectedCharacters when story flow starts
+         */
+        function syncCharacterSelection(character) {
+            if (!character?.id || selectedCharacters.has(character.id)) return;
+            let imageUrl = '';
+            if (character.generatedImages?.length > 0) {
+                const portrait = character.generatedImages.find(img => img.variant === 'portrait');
+                imageUrl = (portrait || character.generatedImages[0]).originalUrl || '';
+            }
+            selectedCharacters.set(character.id, { name: character.name, imageUrl });
+            renderSelectedCharPills('android');
         }
 
         /**

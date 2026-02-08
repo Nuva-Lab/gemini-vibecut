@@ -51,6 +51,8 @@ All buttons → `agentChat()` → Agent responds with next steps
 |-------|----------|
 | Gallery Analysis | MULTIPLE characters (cat, dog, person) |
 | Character Creation | ONE subject across reference images |
+| Story Building | ONE or MULTIPLE characters (comma-separated IDs) |
+| Manga Generation | ONE or MULTIPLE characters (array) |
 
 ---
 
@@ -106,10 +108,20 @@ curl -s http://localhost:8000/api/debug/logs/list
 **Cause:** Saved characters confused Gemini into thinking analysis was done
 **Fix:** Prompt clarifies: "Saved characters are NOT gallery subjects"
 
-### Multi-Character ID Error
-**Check:** Logs show `character_id: 'id1, id2'`
-**Cause:** Gemini returns comma-separated IDs for multi-select
-**Fix:** brain.js splits IDs and uses first: `character_id.split(',')[0].trim()`
+### Multi-Character Stories
+**Flow:** Gemini sends comma-separated IDs: `character_id: 'id1, id2'`
+**Handling:** `brain.js` resolves ALL IDs into a `characters` array. Story cards accept both single character and array. `renderStoryQuestionCard` and `renderStoryConfirmCard` show pills for all characters.
+**Re-trigger:** When user selects/deselects characters in Assets tab during active story flow (`storyFlowActive`), `selectCharacterForCreate` sends updated selection to `agentChat`, restarting story building.
+
+### Stale Card Buttons
+**Pattern:** `deactivatePreviousCards(device)` called at the top of every card renderer.
+**Behavior:** Disables all buttons/inputs in prior chat cards, dims stale containers to `opacity: 0.6`.
+**Scope:** All card types: permission, character, place, video, idea, creation_suggestion, story question, story confirm, manga.
+
+### Uploaded Subject Priority
+**Analysis:** `LifeCharacter` and `MeaningfulPlace` have `has_uploaded_media: bool` flag (computed from overlap between `image_indices` and uploaded media indices).
+**Card ordering:** `getNextUnshownSubject()` gives priority 0 to uploaded subjects (above pets=1, people=2).
+**Character creation:** Threshold lowered to 1+ photos for uploaded subjects (from 3).
 
 ---
 
@@ -120,8 +132,8 @@ curl -s http://localhost:8000/api/debug/logs/list
 | `analyze_gallery` | Analyze mixed media gallery (photos + videos), detect characters/places |
 | `show_card` | Display cards (subject, creation_suggestion, summary) |
 | `create_character` | Generate anime character from reference photos |
-| `ask_story_question` | Ask user a question with 2 options to build story |
-| `confirm_story` | Show story outline for user approval |
+| `ask_story_question` | Ask user a question with 2 options to build story (supports multi-character via comma-separated IDs) |
+| `confirm_story` | Show story outline for user approval (supports multi-character) |
 | `create_manga` | Generate video keyframes (clean images, no manga artifacts) |
 | `respond` | Send text message only |
 
@@ -163,4 +175,12 @@ grant_photos → analyze_gallery → show_card(char_0)
 ```
 "Mochi steals a cookie from the kitchen"
 → create_manga directly (specific concept given)
+```
+
+**Multi-character story:**
+```
+User selects Mochi in Assets → starts story → selects Goldie in Assets
+→ storyFlowActive detected → agentChat re-triggers with both characters
+→ ask_story_question(character_id: "id1, id2") → pills for both shown
+→ confirm_story → create_manga with characters array
 ```

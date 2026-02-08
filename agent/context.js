@@ -103,16 +103,23 @@ export class AgentContext {
         const subjects = [];
 
         (analysisResult.life_characters || []).forEach((char, i) => {
+            // Uploaded subjects get highest priority (0), then pets (1), then people (2)
+            const basePriority = char.type === 'pet' ? 1 : 2;
             subjects.push({
                 id: `char_${i}`,
                 type: 'character',
                 data: char,
-                priority: char.type === 'pet' ? 1 : 2
+                priority: char.has_uploaded_media ? 0 : basePriority
             });
         });
 
         (analysisResult.meaningful_places || []).forEach((place, i) => {
-            subjects.push({ id: `place_${i}`, type: 'place', data: place, priority: 3 });
+            subjects.push({
+                id: `place_${i}`,
+                type: 'place',
+                data: place,
+                priority: place.has_uploaded_media ? 0 : 3
+            });
         });
 
         (analysisResult.creative_sparks || []).forEach((idea, i) => {
@@ -238,7 +245,8 @@ export function buildSystemPrompt(analysisResult, context, canvas = {}) {
             name: char.name_suggestion || char.who_they_are,
             photos: char.appearances || char.image_indices?.length || 0,
             charType: char.type,
-            indices: char.image_indices || []
+            indices: char.image_indices || [],
+            hasUploadedMedia: char.has_uploaded_media || false
         });
     });
 
@@ -247,7 +255,8 @@ export function buildSystemPrompt(analysisResult, context, canvas = {}) {
             id: `place_${i}`,
             type: 'place',
             name: place.place_description,
-            mood: place.mood
+            mood: place.mood,
+            hasUploadedMedia: place.has_uploaded_media || false
         });
     });
 
@@ -263,6 +272,7 @@ export function buildSystemPrompt(analysisResult, context, canvas = {}) {
         let line = `- ${s.id}: ${s.type} "${s.name}"`;
         if (s.photos) line += ` (${s.photos} items, indices: [${s.indices?.join(', ')}])`;
         if (s.charType) line += ` [${s.charType}]`;
+        if (s.hasUploadedMedia) line += ` ⭐ USER UPLOAD`;
         return line;
     }).join('\n');
 
@@ -331,6 +341,7 @@ ${savedCharsSection}
    → Start INTERACTIVE STORY BUILDING (see below)
 
 ### Priority Order for Subjects:
+0. ⭐ USER UPLOAD subjects — ALWAYS show first (user actively added these)
 1. Characters (char_*) — pets first, then people
 2. Places (place_*) — meaningful locations
 3. Ideas (idea_*) — show LAST only

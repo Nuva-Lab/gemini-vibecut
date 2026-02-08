@@ -387,6 +387,22 @@ python tests/test_music_pipeline.py --lyrics-only
 **Root cause:** Even with `[Media X]` labels and explicit instructions, Gemini consistently excludes video indices from `media_indices` arrays in characters/places.
 **Workaround:** Videos get their own dedicated "Video Moments" card instead of being forced into character/place cards. Character/place cards are image-only (clean grouping). Including filenames in labels (`[Media X: filename]`) helps index accuracy overall.
 
+### 14. User-Uploaded Photos Ignored by Gemini
+**Root cause:** Uploaded files kept original names (e.g., "Generated Image February 01, 2026...") which confused Gemini. Also, with 30+ demo items, 3 uploads got lost in the noise.
+**Fix:** Neutral filenames (`photo_abc123.jpeg`), `(your upload)` tags in media labels, and prompt instruction: "Items marked (your upload) MUST get their own life_character entry."
+
+### 15. Uploaded Subjects Shown After Demo Content
+**Root cause:** `getNextUnshownSubject()` priority was pets=1, people=2 — uploaded subjects had same priority.
+**Fix:** Added `has_uploaded_media` flag to `LifeCharacter`/`MeaningfulPlace` models. Server computes overlap between `image_indices` and uploaded media indices. Frontend gives priority 0 to uploaded subjects.
+
+### 16. Character Creation Button Hidden for Low-Photo Subjects
+**Root cause:** `renderSingleCharacterCard` and `suggestMakeAnimeSkill` required `>= 3` photos. Uploaded subjects might have fewer indexed photos.
+**Fix:** Threshold lowered to `>= 1` for subjects with `has_uploaded_media: true`.
+
+### 17. Stale Actionable Buttons in Chat History
+**Root cause:** Previous cards (story questions, character cards, permission dialogs) kept interactive buttons even after new cards appeared, confusing the user.
+**Fix:** `deactivatePreviousCards(device)` called at the top of every card renderer. Disables all buttons/inputs in prior cards and dims stale card containers to `opacity: 0.6`.
+
 ---
 
 ## Roadmap
@@ -410,6 +426,15 @@ python tests/test_music_pipeline.py --lyrics-only
 - [x] Streaming progress UX (upload progress → Gemini reactions → analysis)
 - [x] Agent never ends passively (always pushes toward next creative step)
 - [x] Filename-based media labels for accurate Gemini indexing
+- [x] Upload priority (uploaded subjects shown first, `has_uploaded_media` flag)
+- [x] Neutral upload filenames (`photo_abc123.jpeg` — no confusing original names)
+- [x] Upload tagging in media labels (`(your upload)` + prompt enforcement)
+- [x] Character creation with 1+ photos for uploaded subjects (lowered from 3)
+- [x] Character name pills in story cards (ask_story_question, confirm_story, manga)
+- [x] Multi-character story flow (comma-separated character_ids, array resolution)
+- [x] Character selection sync (assets tab ↔ story cards ↔ input pills)
+- [x] Re-trigger story on character selection change during active flow
+- [x] Deactivate stale cards (only latest card has interactive buttons)
 
 ### Next
 - [ ] End-to-end web UI flow (upload → analyze → character → manga → video in one session)
