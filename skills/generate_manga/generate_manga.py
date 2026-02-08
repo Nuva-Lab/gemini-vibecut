@@ -24,6 +24,7 @@ from google.genai import types
 from config import (
     GOOGLE_API_KEY,
     NANO_BANANA_MODEL,
+    GEMINI_PRO_MODEL,
     OUTPUT_DIR,
 )
 
@@ -107,6 +108,46 @@ class MangaGenerator:
         else:
             return "CAMERA: Dynamic angle for this moment."
 
+    async def _describe_character(self, char_name: str, char_image_part) -> str:
+        """
+        Use Gemini Pro to analyze a character reference sheet and produce
+        a concise appearance description for embedding in panel prompts.
+
+        This gives the image model a text anchor alongside the visual reference,
+        preventing character drift on complex story beats.
+        """
+        prompt = f"""Analyze this character reference sheet for "{char_name}" and describe their appearance concisely.
+
+Include ONLY visual details in 2-3 sentences:
+- Hair: color, length, style
+- Face: age range, facial hair, expression
+- Outfit: specific clothing items and colors
+- Accessories: headphones, glasses, hat, jewelry, etc.
+- If this is an animal: breed, fur color, distinguishing markings
+
+Be specific about colors and items. This description will be used to ensure the character looks the same across multiple illustrations.
+
+Format: "{char_name} is/has..." (plain text, no bullets, no labels)"""
+
+        try:
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=GEMINI_PRO_MODEL,
+                contents=[char_image_part, types.Part.from_text(text=prompt)],
+                config=types.GenerateContentConfig(
+                    temperature=1.0,
+                    thinking_config=types.ThinkingConfig(thinking_level="low"),
+                ),
+            )
+            desc = response.text.strip()
+            # Truncate if too long (keep prompt size reasonable)
+            if len(desc) > 400:
+                desc = desc[:400].rsplit('.', 1)[0] + '.'
+            return desc
+        except Exception as e:
+            logger.warning(f"[MangaGenerator] Character description failed for {char_name}: {e}")
+            return ""
+
     def _build_panel_prompt(
         self,
         character_names: list[str],
@@ -115,21 +156,31 @@ class MangaGenerator:
         panel_index: int,
         total_panels: int,
         has_previous_panel: bool = False,
+        char_descriptions: dict = None,
     ) -> str:
         """Build the prompt for generating a single panel with 1-2 characters."""
         camera_instruction = self._parse_camera_instruction(story_beat)
         style_desc = STYLE_DESCRIPTIONS.get(style, STYLE_DESCRIPTIONS["manga"])
 
-        # Build character reference section
+        # Build character reference section with text descriptions
+        descs = char_descriptions or {}
+
+        def _char_line(idx, name):
+            line = f"- [IMAGE {idx}]: {name} - Use this EXACT design for {name}"
+            desc = descs.get(name, "")
+            if desc:
+                line += f"\n  APPEARANCE: {desc}"
+            return line
+
         if len(character_names) == 1:
             char_ref_section = f"""CHARACTER REFERENCES:
-- [IMAGE 1]: {character_names[0]} - Use this EXACT design for {character_names[0]}"""
+{_char_line(1, character_names[0])}"""
         else:
             char_ref_section = f"""CHARACTER REFERENCES (2 characters in this scene):
-- [IMAGE 1]: {character_names[0]} - Use this EXACT design for {character_names[0]}
-- [IMAGE 2]: {character_names[1]} - Use this EXACT design for {character_names[1]}
+{_char_line(1, character_names[0])}
+{_char_line(2, character_names[1])}
 
-CRITICAL: Both characters must appear as described in the story beat. Match each character to their reference image by name."""
+CRITICAL: Both characters must appear as described in the story beat. Match each character to their reference image AND appearance description by name."""
 
         # Progression context with cinematic transitions
         if panel_index == 0:
@@ -181,7 +232,9 @@ STYLE: {style_desc}
 
 CRITICAL REQUIREMENTS:
 - ILLUSTRATED/DRAWN style - NOT photorealistic, NOT a photograph
-- Each character design matches their reference image [IMAGE 1/2] EXACTLY
+- Each character design matches their reference image [IMAGE 1/2] AND their APPEARANCE description EXACTLY
+- Characters MUST keep the same hair, clothing, accessories, and features as described above
+- NEVER replace a character with a different person or animal — the SAME characters appear in EVERY panel
 - CHANGE THE CAMERA ANGLE from previous panel
 - Full color, vibrant, cinematic lighting
 - This is a VIDEO KEYFRAME - must be clean for animation
@@ -271,6 +324,17 @@ Output: EXACTLY ONE clean, full-frame, ILLUSTRATED anime image"""
 
         char_names_str = " & ".join(character_names)
 
+        # Pre-generate text descriptions of each character using Gemini Pro
+        # This gives the image model a text anchor alongside the visual reference
+        char_descriptions = {}
+        for char_info in character_parts:
+            desc = await self._describe_character(char_info['name'], char_info['part'])
+            char_descriptions[char_info['name']] = desc
+            if desc:
+                logger.info(f"[MangaGenerator] Character description for {char_info['name']}: {desc[:100]}...")
+            else:
+                logger.warning(f"[MangaGenerator] No description generated for {char_info['name']}")
+
         # Send start event
         yield StreamEvent('start', {
             'manga_id': manga_id,
@@ -293,7 +357,7 @@ Output: EXACTLY ONE clean, full-frame, ILLUSTRATED anime image"""
             })
             await asyncio.sleep(0)
 
-            # Build prompt with multi-character support
+            # Build prompt with multi-character support + text descriptions
             prompt = self._build_panel_prompt(
                 character_names=character_names,
                 story_beat=story_beat,
@@ -301,6 +365,7 @@ Output: EXACTLY ONE clean, full-frame, ILLUSTRATED anime image"""
                 panel_index=i,
                 total_panels=panel_count,
                 has_previous_panel=(previous_panel_part is not None),
+                char_descriptions=char_descriptions,
             )
 
             try:

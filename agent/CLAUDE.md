@@ -123,6 +123,10 @@ curl -s http://localhost:8000/api/debug/logs/list
 **Card ordering:** `getNextUnshownSubject()` gives priority 0 to uploaded subjects (above pets=1, people=2).
 **Character creation:** Threshold lowered to 1+ photos for uploaded subjects (from 3).
 
+### Manga Character Consistency
+**Problem:** Image model can hallucinate different characters on complex story beats when relying only on visual reference.
+**Fix:** Before panel generation, `_describe_character()` calls Gemini Pro to analyze the character sheet and produce a text description (hair, clothing, accessories). This is embedded in every panel prompt as `APPEARANCE:` alongside the visual reference — dual anchor approach.
+
 ---
 
 ## Skills Reference

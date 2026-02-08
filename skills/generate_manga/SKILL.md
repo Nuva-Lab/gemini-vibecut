@@ -89,11 +89,21 @@ async for event in generator.generate_manga_streaming(
 - **Image Chaining**: Previous panel passed as reference for continuity
 - **Output Location**: `assets/outputs/manga/{manga_id}_panel_{n}.png`
 
+## Character Consistency (Dual Anchor)
+
+Before generating panels, Gemini Pro (`gemini-3-pro-preview`) analyzes each character reference sheet and produces a 2-3 sentence appearance description. This runs once per character (~2s), not per panel.
+
+Each panel prompt includes **two anchors** per character:
+1. **Visual reference**: Character sheet image passed as `[IMAGE N]`
+2. **Text description**: `APPEARANCE: VibeCoder is an older man with long grey hair, full grey beard, black hoodie, gold headphones...`
+
+This prevents the image model from hallucinating different characters on complex story beats.
+
 ## Visual Continuity
 
 For panels 2+, the prompt includes:
-- Previous panel as visual reference
+- Previous panel as visual reference (`[IMAGE N - PREVIOUS PANEL]`)
 - Explicit instructions to match colors, lighting, environment
-- "DO NOT re-describe what's already visible"
+- "NEVER replace a character with a different person or animal"
 
-This ensures consistent backgrounds, lighting, and color palette across all panels.
+This ensures consistent backgrounds, lighting, color palette, and character identity across all panels.

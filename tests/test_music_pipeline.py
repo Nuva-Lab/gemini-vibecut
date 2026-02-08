@@ -89,20 +89,25 @@ async def test_music_only():
     print("Generating music...")
 
     result = await gen.generate_music(
-        prompt="upbeat anime pop, female vocals, piano, guitar, energetic, bright, 125 BPM",
+        prompt="upbeat anime pop, piano, electronic drums, synth bass, female vocals, energetic, bright, full instrumentation from first beat, 125 BPM",
         lyrics=(
             "[Verse 1]\n"
-            "Running through the light\n"
+            "Running through the morning light\n"
+            "Every color shining bright\n"
             "[Verse 2]\n"
-            "Colors in the sky\n"
+            "Following the winding road\n"
+            "Carrying our heavy load\n"
             "[Chorus]\n"
-            "We can fly together\n"
-            "Nothing holds us down"
+            "We can fly together now\n"
+            "Nothing gonna hold us down\n"
+            "[Outro]\n"
+            "Stars are shining just for us\n"
+            "This is where our story starts"
         ),
         duration=16,
         clip_duration=4,
         vocal_style="energetic",
-        negative_tags="slow, dark, heavy metal, sad, spoken word",
+        negative_tags="slow, dark, heavy metal, sad, spoken word, silence, slow intro, fade in, sparse, thin",
         bpm=125,
     )
 
@@ -134,18 +139,24 @@ async def test_lyrics_only():
     print(f"Negative: {result.negative_tags}")
     print(f"Lyrics:\n{result.lyrics}")
 
-    # Validate panel-aligned structure
+    # Validate couplet structure (2 lines per panel)
     import re
     lines = [l.strip() for l in result.lyrics.splitlines()
              if l.strip() and not re.match(r'^\[.*\]$', l.strip())]
     print(f"\nValidation:")
-    print(f"  Lines: {len(lines)} (expected: 4)")
+    print(f"  Lines: {len(lines)} (expected: 8, couplet structure)")
     for i, line in enumerate(lines):
         word_count = len(line.split())
-        status = "OK" if 3 <= word_count <= 5 else "WARN"
-        print(f"  [{status}] Line {i+1}: '{line}' ({word_count} words)")
-    if len(lines) != 4:
-        print(f"  WARNING: Expected 4 lines (1 per panel), got {len(lines)}")
+        status = "OK" if 3 <= word_count <= 6 else "WARN"
+        panel_num = (i // 2) + 1
+        line_in_panel = (i % 2) + 1
+        print(f"  [{status}] Panel {panel_num}, Line {line_in_panel}: '{line}' ({word_count} words)")
+    if len(lines) != 8:
+        print(f"  WARNING: Expected 8 lines (2 per panel couplet), got {len(lines)}")
+    if hasattr(result, 'panel_local_styles') and result.panel_local_styles:
+        print(f"  Section styles: {len(result.panel_local_styles)} sections")
+        for i, styles in enumerate(result.panel_local_styles):
+            print(f"    Section {i+1}: {styles}")
 
     return result
 

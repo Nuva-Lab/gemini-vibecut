@@ -66,6 +66,7 @@ class ElevenLabsMusicGenerator:
         duration: int = 16,
         clip_duration: int = 4,
         panel_styles: list[str] = None,
+        panel_local_styles: list[list[str]] = None,
         vocal_style: str = "",
         negative_tags: str = "",
         bpm: int = 0,
@@ -77,14 +78,16 @@ class ElevenLabsMusicGenerator:
         - Intent-based global styles (genre + instruments + vocal delivery + BPM)
         - Per-section local styles matching story arc progression
         - Negative styles to avoid unwanted musical directions
-        - respect_sections_durations=True for exact 4s per section
+        - respect_sections_durations=True for exact timing per section
+        - Multi-line sections (2 lyric lines per panel for richer vocals)
 
         Args:
             prompt: Style/genre description (used for positive_global_styles)
-            lyrics: Song lyrics with [Verse 1]/[Chorus] structure tags
+            lyrics: Song lyrics with [Verse 1]/[Chorus] structure tags (8 lines for 4 panels)
             duration: Total duration in seconds (ignored, derived from sections)
             clip_duration: Duration per panel/section in seconds (default 4)
-            panel_styles: Optional per-panel local style overrides
+            panel_styles: Optional per-panel local style overrides (legacy, single string each)
+            panel_local_styles: Gemini-generated per-section local styles (list of lists)
             vocal_style: Vocal delivery descriptor (e.g. "breathy", "energetic")
             negative_tags: Comma-separated styles to avoid
             bpm: Suggested BPM (0 = let model decide)
@@ -94,62 +97,111 @@ class ElevenLabsMusicGenerator:
         """
         import re
 
-        # Parse lyrics into lines (strip structure tags)
-        lines = []
+        # Parse lyrics into section groups by structure tags
+        # Input: "[Verse 1]\nLine1\nLine2\n[Verse 2]\nLine3\nLine4\n..."
+        # Output: [["Line1", "Line2"], ["Line3", "Line4"], ...]
+        num_sections = max(1, duration // clip_duration) if clip_duration > 0 else 4
+        sections_lines = []
+        current_section = []
         for line in lyrics.splitlines():
             stripped = line.strip()
-            if stripped and not re.match(r'^\[.*\]$', stripped):
-                lines.append(stripped)
+            if not stripped:
+                continue
+            if re.match(r'^\[.*\]$', stripped):
+                if current_section:
+                    sections_lines.append(current_section)
+                    current_section = []
+            else:
+                current_section.append(stripped)
+        if current_section:
+            sections_lines.append(current_section)
 
-        if not lines:
-            lines = ["la la la", "la la la", "la la la", "la la la"]
+        # If structure-tag parsing didn't produce the right number, fall back to even grouping
+        if len(sections_lines) != num_sections:
+            all_lines = []
+            for line in lyrics.splitlines():
+                stripped = line.strip()
+                if stripped and not re.match(r'^\[.*\]$', stripped):
+                    all_lines.append(stripped)
+            if not all_lines:
+                all_lines = ["la la la", "la la la", "la la la", "la la la",
+                             "la la la", "la la la", "la la la", "la la la"]
+            lines_per = max(1, len(all_lines) // num_sections)
+            sections_lines = []
+            for i in range(0, len(all_lines), lines_per):
+                sections_lines.append(all_lines[i:i + lines_per])
+            while len(sections_lines) < num_sections:
+                sections_lines.append(["la la la"])
+            sections_lines = sections_lines[:num_sections]
 
         # Parse global styles from prompt (comma-separated tags)
         global_styles = [s.strip() for s in prompt.split(",") if s.strip()]
 
-        # Enrich global styles with vocal delivery and BPM if provided
+        # Ensure full instrumentation from first beat
+        if not any("full instrumentation" in s.lower() for s in global_styles):
+            global_styles.append("full instrumentation from first beat")
+        if not any("continuous" in s.lower() for s in global_styles):
+            global_styles.append("continuous backing track")
+
+        # Enrich global styles with vocal delivery and BPM
         if vocal_style and vocal_style not in " ".join(global_styles).lower():
             global_styles.append(f"{vocal_style} vocals")
         if bpm > 0 and not any("bpm" in s.lower() for s in global_styles):
             global_styles.append(f"{bpm} BPM")
 
-        # Parse negative styles
-        neg_styles = ["spoken word"]  # Always avoid spoken word for music
+        # Parse negative styles — always avoid sparse/dry output
+        must_avoid = ["spoken word", "silence", "slow intro", "fade in", "sparse", "thin"]
         if negative_tags:
             neg_styles = [s.strip() for s in negative_tags.split(",") if s.strip()]
+            # Ensure essentials are present
+            existing_lower = {s.lower() for s in neg_styles}
+            for ma in must_avoid:
+                if ma.lower() not in existing_lower:
+                    neg_styles.append(ma)
+        else:
+            neg_styles = must_avoid[:]
 
-        # Build sections — one per lyrics line
-        # Story arc: setup → action → twist → payoff
+        # Build sections — one per panel, multi-line
         section_names = ["Verse 1", "Verse 2", "Chorus", "Outro"]
-        default_local = [
-            ["gentle", "building", "soft opening"],
-            ["rising energy", "melodic", "building momentum"],
-            ["energetic", "powerful", "catchy hook"],
-            ["triumphant", "uplifting", "resolving", "emotional peak"],
+        default_local_pos = [
+            ["gentle", "soft piano", "building", "warm opening"],
+            ["rising energy", "melodic", "driving rhythm", "building momentum"],
+            ["energetic", "powerful", "catchy hook", "anthemic", "full energy"],
+            ["triumphant", "warm resolution", "uplifting", "emotional peak"],
+        ]
+        default_local_neg = [
+            ["loud", "heavy drums", "aggressive"],
+            ["slow", "quiet", "subdued"],
+            ["subdued", "quiet", "restrained"],
+            ["abrupt", "dark", "harsh"],
         ]
 
         from elevenlabs.types.song_section import SongSection
 
         sections = []
-        for i, line in enumerate(lines):
+        for i, sec_lines in enumerate(sections_lines):
             name = section_names[i] if i < len(section_names) else f"Section {i+1}"
 
-            # Local styles: use panel_styles override, or default arc progression
-            if panel_styles and i < len(panel_styles):
+            # Local styles priority: Gemini-provided > panel_styles override > default
+            if panel_local_styles and i < len(panel_local_styles) and panel_local_styles[i]:
+                local_pos = list(panel_local_styles[i])
+            elif panel_styles and i < len(panel_styles):
                 local_pos = [panel_styles[i]]
             else:
-                local_pos = default_local[i] if i < len(default_local) else ["melodic"]
+                local_pos = list(default_local_pos[i]) if i < len(default_local_pos) else ["melodic"]
 
-            # Add vocal delivery to local styles for consistency
+            local_neg = list(default_local_neg[i]) if i < len(default_local_neg) else []
+
+            # Add vocal delivery to local styles
             if vocal_style:
                 local_pos = local_pos + [f"{vocal_style} delivery"]
 
             sections.append(SongSection(
                 section_name=name,
                 positive_local_styles=local_pos,
-                negative_local_styles=[],
+                negative_local_styles=local_neg,
                 duration_ms=clip_duration * 1000,
-                lines=[line],
+                lines=sec_lines,
             ))
 
         from elevenlabs.types.music_prompt import MusicPrompt
@@ -162,9 +214,16 @@ class ElevenLabsMusicGenerator:
         total_ms = sum(s.duration_ms for s in sections)
         logger.info(
             f"[ElevenLabs] Generating {total_ms/1000:.0f}s music: "
-            f"{len(sections)} sections, styles={global_styles[:3]}, "
-            f"vocal={vocal_style or 'default'}, neg={neg_styles[:3]}"
+            f"{len(sections)} sections, {sum(len(s.lines) for s in sections)} lyric lines, "
+            f"styles={global_styles[:3]}, vocal={vocal_style or 'default'}, "
+            f"neg_global={neg_styles[:3]}"
         )
+        for i, s in enumerate(sections):
+            logger.info(
+                f"[ElevenLabs]   Section {i+1} '{s.section_name}': "
+                f"lines={s.lines}, pos={s.positive_local_styles[:3]}, "
+                f"neg={s.negative_local_styles[:2]}"
+            )
 
         # Run blocking API call in executor
         loop = asyncio.get_event_loop()

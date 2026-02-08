@@ -965,6 +965,7 @@ class AnimatedStoryGenerator:
         vocal_style: str = "",
         negative_tags: str = "",
         bpm: int = 0,
+        panel_local_styles: list = None,
     ):
         """Generate music via ElevenLabs."""
         music_gen = self._get_music_generator()
@@ -976,6 +977,7 @@ class AnimatedStoryGenerator:
             vocal_style=vocal_style,
             negative_tags=negative_tags,
             bpm=bpm,
+            panel_local_styles=panel_local_styles,
         )
 
     async def generate_animated_story_with_music_streaming(
@@ -1039,6 +1041,7 @@ class AnimatedStoryGenerator:
         vocal_style = ""
         negative_tags = ""
         bpm = 0
+        lyrics_result = None  # Store full result for panel_local_styles
 
         if custom_tags and custom_lyrics:
             tags = custom_tags
@@ -1047,7 +1050,7 @@ class AnimatedStoryGenerator:
             logger.info("[AnimatedStory] Using custom tags/lyrics")
         else:
             yield AnimationStreamEvent('lyrics_progress', {
-                'message': 'Generating song lyrics...'
+                'message': 'Generating song lyrics (Pro model)...'
             })
             await asyncio.sleep(0)
 
@@ -1066,22 +1069,25 @@ class AnimatedStoryGenerator:
                 bpm = lyrics_result.bpm
             except Exception as e:
                 logger.error(f"[AnimatedStory] Lyrics generation failed: {e}")
-                tags = "anime pop, female vocals, piano, gentle, 110 BPM"
+                tags = "anime pop, female vocals, piano, gentle, full instrumentation from first beat, 110 BPM"
                 lyrics = (
-                    "[Verse]\nRunning through the light\nColors in the sky\n"
-                    "[Chorus]\nWe can fly together\nNothing holds us down"
+                    "[Verse 1]\nShining in the morning light\nSomething new is waiting here\n"
+                    "[Verse 2]\nRunning side by side we go\nEvery step a little braver\n"
+                    "[Chorus]\nWe can fly together now\nNothing gonna hold us down\n"
+                    "[Outro]\nStars are shining just for us\nThis is where our story starts"
                 )
                 mood = "hopeful"
 
-            # Validate lyrics line count matches panel count
+            # Validate lyrics line count: expect 2 lines per panel (couplet structure)
             lyrics_lines_check = self._extract_lyrics_lines(lyrics)
-            if len(lyrics_lines_check) != clip_count:
+            expected_lines = clip_count * 2  # 2 lines per panel = 8 for 4 panels
+            if len(lyrics_lines_check) != expected_lines:
                 logger.warning(
-                    f"[AnimatedStory] Lyrics lines ({len(lyrics_lines_check)}) != panel count ({clip_count}). "
-                    f"Caption-to-panel alignment may drift."
+                    f"[AnimatedStory] Lyrics lines ({len(lyrics_lines_check)}) != expected ({expected_lines}). "
+                    f"Caption-to-panel alignment will use grouping."
                 )
             else:
-                logger.info(f"[AnimatedStory] Lyrics: {len(lyrics_lines_check)} lines for {clip_count} panels (1:1 match)")
+                logger.info(f"[AnimatedStory] Lyrics: {len(lyrics_lines_check)} lines for {clip_count} panels (2:1 couplet)")
 
             yield AnimationStreamEvent('lyrics_progress', {
                 'message': f'Lyrics ready (mood: {mood})',
@@ -1113,6 +1119,11 @@ class AnimatedStoryGenerator:
         # ElevenLabs: duration is controlled per-section via composition_plan
         music_duration = total_expected_duration
 
+        # Extract panel_local_styles from lyrics result if available
+        pls = None
+        if lyrics_result and hasattr(lyrics_result, 'panel_local_styles'):
+            pls = lyrics_result.panel_local_styles
+
         # Launch both tasks in parallel
         video_task = asyncio.create_task(
             self._generate_all_clips(panels, panel_paths, clip_duration, story_id)
@@ -1123,6 +1134,7 @@ class AnimatedStoryGenerator:
                 vocal_style=vocal_style,
                 negative_tags=negative_tags,
                 bpm=bpm,
+                panel_local_styles=pls,
             )
         )
 
@@ -1211,65 +1223,77 @@ class AnimatedStoryGenerator:
                     })
                     await asyncio.sleep(0)
 
-                    # Panel-locked captions: each lyric line is displayed during
-                    # its corresponding panel's time window. Words are evenly
-                    # spaced for karaoke-style highlighting.
+                    # Panel-locked captions: lyrics lines are grouped by panel.
+                    # With couplet structure (2 lines/panel), each panel's 4s window
+                    # is split between its lines for sequential karaoke display.
                     lyrics_lines = self._extract_lyrics_lines(lyrics)
                     video_duration_ms = int(total_duration * 1000)
                     clip_duration_ms = clip_duration * 1000
 
                     if lyrics_lines:
                         yield AnimationStreamEvent('caption_progress', {
-                            'message': f'Rendering rolling lyrics...'
+                            'message': f'Rendering rolling lyrics ({len(lyrics_lines)} lines)...'
                         })
                         await asyncio.sleep(0)
 
                         renderer = self._get_renderer()
                         from skills.render_captions import CaptionSegment, WordSegment as RWordSegment
 
-                        # Lock each line to its panel's time window
-                        # Line i displays during panel i (i * clip_duration to (i+1) * clip_duration)
-                        # Words within each line are evenly spaced for karaoke effect
+                        # Group lyrics lines by panel (e.g., 8 lines → 4 groups of 2)
+                        lines_per_panel = max(1, len(lyrics_lines) // max(clip_count, 1))
+                        panel_lyrics = []
+                        for pi in range(clip_count):
+                            start_idx = pi * lines_per_panel
+                            end_idx = min(start_idx + lines_per_panel, len(lyrics_lines))
+                            panel_lyrics.append(lyrics_lines[start_idx:end_idx])
+
                         caption_segments = []
-                        for li, line in enumerate(lyrics_lines):
-                            panel_start_ms = li * clip_duration_ms
-                            panel_end_ms = min((li + 1) * clip_duration_ms, video_duration_ms)
+                        for pi, lines_group in enumerate(panel_lyrics):
+                            panel_start_ms = pi * clip_duration_ms
+                            panel_end_ms = min((pi + 1) * clip_duration_ms, video_duration_ms)
 
                             if panel_start_ms >= video_duration_ms:
                                 break
 
-                            # Display caption in the middle 80% of the panel
-                            # (small gap at start/end for visual breathing room)
-                            margin_ms = clip_duration_ms // 10  # 10% margin = 400ms for 4s clips
+                            margin_ms = clip_duration_ms // 10  # 400ms for 4s clips
                             caption_start = panel_start_ms + margin_ms
                             caption_end = panel_end_ms - margin_ms
+                            total_caption_ms = caption_end - caption_start
 
-                            # Spread words evenly across the caption display window
-                            words = line.split()
-                            word_duration = (caption_end - caption_start) // max(len(words), 1)
-                            word_segments = []
-                            for wi, word in enumerate(words):
-                                ws = caption_start + wi * word_duration
-                                we = min(ws + word_duration, caption_end)
-                                word_segments.append(RWordSegment(
-                                    text=word,
-                                    startMs=ws,
-                                    endMs=we,
+                            # Split time evenly between lines in the group
+                            line_duration_ms = total_caption_ms // max(len(lines_group), 1)
+
+                            for li, line in enumerate(lines_group):
+                                line_start = caption_start + li * line_duration_ms
+                                line_end = min(line_start + line_duration_ms, caption_end)
+
+                                # Spread words evenly within this line's window
+                                words = line.split()
+                                word_duration = (line_end - line_start) // max(len(words), 1)
+                                word_segments = []
+                                for wi, word in enumerate(words):
+                                    ws = line_start + wi * word_duration
+                                    we = min(ws + word_duration, line_end)
+                                    word_segments.append(RWordSegment(
+                                        text=word,
+                                        startMs=ws,
+                                        endMs=we,
+                                    ))
+
+                                caption_segments.append(CaptionSegment(
+                                    text=line,
+                                    startMs=line_start,
+                                    endMs=line_end,
+                                    speaker="\u266a",  # ♪ musical note
+                                    words=word_segments,
                                 ))
-
-                            caption_segments.append(CaptionSegment(
-                                text=line,
-                                startMs=caption_start,
-                                endMs=caption_end,
-                                speaker="\u266a",  # ♪ musical note
-                                words=word_segments,
-                            ))
 
                         # Log caption-to-panel mapping
                         for ci, seg in enumerate(caption_segments):
+                            panel_idx = ci // max(lines_per_panel, 1) + 1
                             logger.info(
                                 f"[AnimatedStory] Caption {ci+1}: '{seg.text}' "
-                                f"@ {seg.startMs}-{seg.endMs}ms (panel {ci+1})"
+                                f"@ {seg.startMs}-{seg.endMs}ms (panel {panel_idx})"
                             )
 
                         if caption_segments:

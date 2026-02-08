@@ -29,6 +29,9 @@ GEMINI_FLASH_MODEL = "gemini-3-flash-preview"
 GEMINI_PRO_MODEL = "gemini-3-pro-preview"
 GEMINI_MODEL = GEMINI_PRO_MODEL if USE_PRO_MODEL else GEMINI_FLASH_MODEL
 
+# Lyrics always use Pro for higher quality storytelling (small context, low thinking)
+GEMINI_LYRICS_MODEL = GEMINI_PRO_MODEL
+
 # Generation model IDs
 # Nano Banana Pro (Gemini 3 Pro Image) - supports 2K resolution and interleaved output
 NANO_BANANA_MODEL = os.getenv("NANO_BANANA_MODEL", "gemini-3-pro-image-preview")
