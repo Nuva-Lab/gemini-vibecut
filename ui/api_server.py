@@ -11,6 +11,7 @@ Run with: uvicorn api_server:app --reload --port 8000
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 import uuid
@@ -2192,9 +2193,11 @@ if __name__ == "__main__":
     print(f"API Docs: http://localhost:8000/docs")
     print("=" * 60 + "\n")
 
+    is_production = os.getenv("VIBECUT_ENV") == "production"
     uvicorn.run(
         "api_server:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
+        reload=not is_production,
+        workers=2 if is_production else 1,
     )

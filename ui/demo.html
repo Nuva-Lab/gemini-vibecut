@@ -1129,15 +1129,13 @@
 
         // Detect deployment mode (API key always server-side)
         const DEPLOYMENT_MODE = (() => {
-            const { hostname, port, protocol } = window.location;
-            if (port === '8000') return 'backend';  // FastAPI server
-            if (protocol === 'file:') return 'static';  // Local file
-            if (hostname === 'localhost' || hostname === '127.0.0.1') return 'local';
-            return 'cloudflare';  // Cloudflare Pages (key in CF KV)
+            const { protocol } = window.location;
+            if (protocol === 'file:') return 'static';  // Local file open
+            return 'server';  // Works for both direct :8000 and behind tunnel/proxy
         })();
 
-        // API base URL
-        const API_BASE = DEPLOYMENT_MODE === 'backend' ? '' : 'http://localhost:8000';
+        // API base URL — relative paths work when served by FastAPI (direct or via tunnel)
+        const API_BASE = DEPLOYMENT_MODE === 'static' ? 'http://localhost:8000' : '';
 
         // =============================================================
         // Chat View & A2UI Widget Functions
