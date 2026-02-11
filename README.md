@@ -1,5 +1,8 @@
 # Gemini VibeCut
 
+<img width="2528" height="1696" alt="image" src="https://github.com/user-attachments/assets/4ee2982c-d8fc-4a48-9d66-7e7e2ecd1200" />
+
+
 > Turn your sleeping digital assets into personalized content.
 
 **Human content at the core. Human directed. AI assisted.**
